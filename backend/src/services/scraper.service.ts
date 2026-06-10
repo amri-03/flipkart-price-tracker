@@ -13,6 +13,7 @@ export interface ScrapedProduct {
     title: string;
     currentPrice: number;
     imageUrl: string;
+    cleanUrl: string;
 }
 
 export class ScraperService {
@@ -47,6 +48,7 @@ export class ScraperService {
             title,
             currentPrice,
             imageUrl,
+            cleanUrl,
         };
     }
 

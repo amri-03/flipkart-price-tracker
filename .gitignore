@@ -13,3 +13,8 @@ yarn-error.log*
 .idea/
 
 .DS_Store
+
+development-roadmap
+
+complete-folder-structure
+backend/temp_diagnostic.html

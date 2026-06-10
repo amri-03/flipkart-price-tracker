@@ -1,0 +1,30 @@
++-------------------------------------------------------------------------------------------+
+| Phase 1: Ingestion Prototype & Foundation (Weeks 1-2)             |
+|  - Database schema configuration with Prisma & PostgreSQL   |
+|  - Write raw HTML scraper service                                                   |
+|  - Build parser utilities to handle Flipkart selectors                         |
++------------------------------------------------------------------------------------------+
+                                                          |
+                                                          v
++------------------------------------------------------------------------------------------+
+| Phase 2: Core API & Scheduler Implementation (Weeks 3-4)    |
+|  - Develop Express REST API endpoints                                           |
+|  - Integrate node-cron for automated recurring executions    |
+|  - Implement notification dispatch system (Webhooks/Email)   |
++------------------------------------------------------------------------------------------+
+                                                          |
+                                                          v
++------------------------------------------------------------------------------------------+
+| Phase 3: Client Application (Weeks 5-6)                                         |
+|  - Develop SPA dashboard using React, TS, and Tailwind CSS    |
+|  - Integrate Recharts to generate clean history graphs             |
+|  - Connect state engine using React Query                                 |
++------------------------------------------------------------------------------------------+
+                                                         |
+                                                         v
++------------------------------------------------------------------------------------------------+
+| Phase 4: Refinement, Deployment, & Hardening (Week 7)               |
+|  - Add random delay intervals (jitter) to prevent blocks                    |
+|  - Package application using Docker for single-command deploy |
+|  - Write system diagnostics and health-check alerts                           |
++------------------------------------------------------------------------------------------------+
