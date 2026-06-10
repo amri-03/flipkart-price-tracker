@@ -14,7 +14,7 @@ yarn-error.log*
 
 .DS_Store
 
-development-roadmap
+development-roadmap.txt
 
-complete-folder-structure
+complete-folder-structure.txt
 backend/temp_diagnostic.html
