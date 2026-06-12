@@ -1,140 +1,201 @@
-# 🚀 Flipkart Price Tracker
+─────────────────────────────────────────────── ⊹ ࣪ ˖
 
-A modern, full-stack price tracking and automated alerting application for Flipkart products. Built with a robust headless scraping engine, automated cron execution, and real-time user notification dispatch.
+# 🏷️ Flipkart Price Tracker
 
----
-
-## ⚡ Project Roadmap & Status
-
-| Phase | Milestone | Status |
-| :--- | :--- | :---: |
-| **Phase 1** | Scraper Prototype & Playwright Akamai Bypass | **Completed** |
-| **Phase 2** | Express REST API & automated `node-cron` checks | **Completed** |
-| **Phase 3** | React SPA Client Dashboard (Vite, TS, Tailwind) | **Completed** |
-| **Phase 4** | Refinement, Docker Containerization & Jitter Spacing | **Completed** |
+A lightweight, self-hosted, privacy-first personal price tracking dashboard for Flipkart. Built with React, Tailwind CSS, TypeScript, and Playwright to automatically bypass Akamai bot defenses.
 
 ---
 
-## 🛠️ Technology Stack
+## ✨ Core Features
 
-* **Backend**: Node.js, TypeScript, Express.js
-* **Database**: PostgreSQL with Prisma ORM
-* **Scraper**: Playwright (headless Chromium) & Cheerio
-* **Scheduler**: `node-cron`
-* **Notifications**: Discord webhooks, Telegram bot API, and SMTP email
-* **Frontend**: React 18, Vite, TanStack Query (React Query), Tailwind CSS
-
----
-
-## 🔌 API Endpoints Reference
-
-### 📦 Product Operations
-* `POST /api/products` — Register and crawl a new Flipkart product URL.
-* `GET /api/products` — List all currently tracked products.
-* `GET /api/products/:id` — Get detailed card for a single product.
-* `GET /api/products/:id/history` — Fetch historical price history points.
-* `POST /api/products/:id/refresh` — Force trigger an immediate price scrape.
-* `DELETE /api/products/:id` — Delete product, price histories, and alerts.
-
-### 🔔 Alert Operations
-* `POST /api/products/:productId/alerts` — Create an active price drop alert.
-* `GET /api/products/:productId/alerts` — List alert conditions for a product.
-* `PUT /api/alerts/:id` — Update or toggle alert state.
-* `DELETE /api/alerts/:id` — Remove an alert rule.
+*   **Automated Price Ingestion**  
+    `node-cron` orchestrates automated pricing updates in the background on a customizable schedule, recording price movement history over time.
+*   **Akamai Bot Resilience**  
+    Bypasses e-commerce scraper-blocks using headless Playwright Chromium instances. Leverages a robust three-tier selector fallback mechanism (`JSON-LD Product Schema` $\rightarrow$ `Open Graph SEO Meta Tags` $\rightarrow$ `DOM Selectors`) to guarantee extraction reliability.
+*   **Interactive Price History**  
+    Beautiful, responsive line graphs powered by **Recharts** with Indian Rupee (₹) currency formatting, custom hover tooltips, and chronological data sorting.
+*   **Smart Alerts & Spam Protection**  
+    Set target price thresholds. Features database-driven `cooldownHours` windows and unique constraint indexing to prevent email/message spamming.
+*   **Multi-Channel Dispatch**  
+    Send real-time alerts immediately when a product drops to or below your target price. Out-of-the-box routing supports:
+    *   **Discord Webhooks**
+    *   **Telegram Bot API**
+    *   **SMTP Email Mailers**
+*   **100% Self-Hosted**  
+    Run completely on your own hardware using a local PostgreSQL instance. No third-party subscriptions, no telemetry, and no vendor lock-in.
 
 ---
 
-## 📖 Project Operation Manual
+## 📸 Screenshots & Interface Demo
 
-This guide outlines how to boot, customize, and maintain your system inside the Docker environment.
+> [!NOTE]
+> Add screenshots of your self-hosted instance here to complete the dashboard presentation.
 
-### 1. Initial Container Boot-Up
-To build and run all services (PostgreSQL, the Express API with Playwright, and the Nginx frontend client) in the background, navigate to the repository root directory in your terminal and execute:
-```bash
-docker-compose up --build -d
 ```
-
-**What happens during boot-up:**
-1. **PostgreSQL (`db`)** initializes and allocates a persistent storage volume (`pgdata`) to preserve your historical prices across restarts.
-2. **Backend API (`backend`)** waits for the database to pass its health checks, applies all database migrations automatically via `npx prisma migrate deploy`, and then initializes the `node-cron` scheduler.
-3. **Client Dashboard (`frontend`)** compiles your React files into lightweight assets and mounts them directly inside the Nginx container on HTTP Port 80.
-
-To verify all containers are running cleanly:
-```bash
-docker-compose ps
-```
-
-### 2. Monitoring Real-Time Scrapes & Cron Logs
-You can watch your Playwright browser instances and price extraction routines in real time by viewing the container logs:
-```bash
-docker logs -f flipkart_tracker_api
-```
-
-**What you will see:**
-* Upon startup, the scheduler logs its target execution rule: `⏰ [CRON] Initializing Scheduler Engine. Target Rule: "0 3 * * *"`
-* During a scheduled or manual refresh, the logs show the browser initiating:
-  ```text
-  🔍 Initializing scraper service...
-  🌐 Fetching and parsing...
-  [ALERT] Dispatched notification successfully to DISCORD for product "Apple iPhone 17..."
-  ⏱️ [CRON DELAY] Sleeping 2 seconds before the next page request...
-  ```
-
-### 3. Configuring Custom Webhooks & Notification Settings
-To activate real-time notifications for price drops, open the root `docker-compose.yml` file and populate your respective target values under the backend environment list:
-```yaml
-    environment:
-      - PORT=5000
-      - DATABASE_URL=postgresql://postgres:postgres_secure_pass@db:5432/flipkart_tracker?schema=public
-      - SCRAPER_CRON_SCHEDULE=0 3 * * * # Adjust this standard cron string if you want more/less frequent scans
-      
-      # For Discord Alerts:
-      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your-id/your-token
-      
-      # For Telegram Alerts:
-      - TELEGRAM_BOT_TOKEN=123456789:ABCDefG...
-      - TELEGRAM_CHAT_ID=987654321
-      
-      # For SMTP Email Alerts:
-      - SMTP_HOST=smtp.mailtrap.io
-      - SMTP_PORT=587
-      - SMTP_USER=your-smtp-username
-      - SMTP_PASS=your-smtp-password
-      - NOTIFICATION_FROM_EMAIL=price-drop-alerts@yourdomain.com
-```
-
-*Note: After modifying `docker-compose.yml` environment values, restart your backend service to apply the updates:*
-```bash
-docker-compose up -d backend
-```
-
-### 4. Local Database Management (Optional Diagnostic Tool)
-If you ever want to view, filter, or manipulate raw database records directly without writing SQL queries, you can launch Prisma Studio locally.
-1. Navigate to the `backend/` folder on your host machine:
-   ```bash
-   cd backend
-   ```
-2. Launch the Prisma Studio interface:
-   ```bash
-   npx prisma studio
-   ```
-3. Open `http://localhost:5555` in your browser. This web console lets you explore your active products, raw price histories, and notification trigger thresholds in a clean, spreadsheet-like interface.
-
-### 5. Safe Teardown
-If you ever need to stop the application or free up system memory:
-```bash
-# Stops and suspends all containers safely
-docker-compose down
-
-# Stops containers AND deletes the persistent PostgreSQL database volumes (WARNING: This purges history logs)
-docker-compose down -v
+┌────────────────────────────────────────────────────────────────────────┐
+│  🏷️ Flipkart Price Tracker                     [ Personal Dashboard ]  │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│   ┌─────────────────────────────────────────────────────────┐          │
+│   │ Paste Flipkart product link here...   [ Track Product ] │          │
+│   └─────────────────────────────────────────────────────────┘          │
+│                                                                        │
+│   Tracked Items (3)                                                    │
+│   ┌───────────────────┐ ┌───────────────────┐ ┌───────────────────┐    │
+│   │ iPhone 15         │ │ Wireless Mouse    │ │ Mechanical KB     │    │
+│   │ Price: ₹65,999    │ │ Price: ₹1,499     │ │ Price: ₹4,299     │    │
+│   │ [Chart] [Alerts]  │ │ [Chart] [Alerts]  │ │ [Chart] [Alerts]  │    │
+│   └───────────────────┘ └───────────────────┘ └───────────────────┘    │
+│                                                                        │
+│   📈 Price History Chart (iPhone 15)                                   │
+│   ┌─────────────────────────────────────────────────────────┐          │
+│   │  ₹67,000 ───●                                           │          │
+│   │  ₹66,000 ───────●                                       │          │
+│   │  ₹65,000 ───────────●                                   │          │
+│   │          12 Oct   14 Oct   16 Oct                       │          │
+│   └─────────────────────────────────────────────────────────┘          │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🏛️ Summary of Built Architecture
+## 🚀 Quick Start (Docker - Recommended)
 
-* **Ingestion Resiliency**: Flipkart HTML parsing is guarded against layout shifts through a three-tier fallback selector strategy (JSON-LD Schema $\rightarrow$ SEO Open Graph Meta tags $\rightarrow$ CSS Classes) coupled with headless Playwright Chromium fetching.
-* **Database Schema**: A normalized, index-optimized database schema that guarantees automatic cleanup of history nodes on untracking using relational `ON DELETE CASCADE` rules.
-* **Alerting Controls**: Avoids notification fatigue through a configurable `cooldownHours` suppression window and prevents duplicate configurations using database-level unique constraint indexing.
-* **Performance**: A client built with React and TanStack (React) Query, keeping loading spinners and memory overhead low, paired with responsive rendering by Recharts.
+Deploy the entire tracker ecosystem in under two minutes using Docker Compose.
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/amri-03/flipkart-price-tracker.git
+cd flipkart-price-tracker
+```
+
+### Step 2: Configure the Environment
+Copy the environment template file:
+```bash
+cp backend/.env.example backend/.env
+```
+Docker Compose utilizes container-to-container service networking, so database URLs are automatically pre-configured. Open `backend/.env` and update your alert target credentials (e.g., webhook tokens, chat IDs, or mail hosts).
+
+### Step 3: Run the Stack
+Spin up the PostgreSQL database, the scraper server, and the Nginx web client:
+```bash
+docker compose up --build -d
+```
+
+During startup:
+1.  **PostgreSQL** (`db`) boots up and binds to a persistent storage volume (`pgdata`).
+2.  **Backend API** (`backend`) waits for the database, automatically applies schema migrations (`npx prisma migrate deploy`), and starts the cron scheduler.
+3.  **Frontend client** (`frontend`) compiles React static assets and serves them via Nginx.
+
+### Accessing the Applications
+*   **Web Dashboard**: [http://localhost](http://localhost) (HTTP Port 80)
+*   **Backend REST API**: [http://localhost:5000/api](http://localhost:5000/api)
+
+---
+
+## 🛠️ Manual / Developer Setup (Native)
+
+For active development, you can run the components natively on your host machine.
+
+### Prerequisites
+*   Node.js (v20+ recommended)
+*   PostgreSQL running locally or on a server
+
+### 1. Backend Setup
+1.  Navigate to the backend directory:
+    ```bash
+    cd backend
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Install the required Playwright Chromium binaries:
+    ```bash
+    npx playwright install chromium
+    ```
+4.  Configure `.env` with a local PostgreSQL connection (e.g., `DATABASE_URL="postgresql://user:pass@localhost:5432/tracker_db"`).
+5.  Generate the Prisma client types and apply migrations:
+    ```bash
+    npx prisma generate
+    npx prisma db push
+    ```
+6.  Start the Express API server in development mode:
+    ```bash
+    npm run dev
+    ```
+
+### 2. Frontend Setup
+1.  Navigate to the frontend directory:
+    ```bash
+    cd ../frontend
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Launch the Vite development server:
+    ```bash
+    npm run dev
+    ```
+    The Vite console will serve the interface locally on [http://localhost:5173](http://localhost:5173).
+
+---
+
+## ⚙️ Environmental Configuration Matrix
+
+Configure these variables inside your `backend/.env` file.
+
+| Variable | Default Value | Description / Options |
+| :--- | :--- | :--- |
+| `PORT` | `5000` | The host port binding for the backend Express application. |
+| `DATABASE_URL` | *Required* | Connection string to your PostgreSQL instance. |
+| `SCRAPER_CRON_SCHEDULE` | `"0 3 * * *"` | Standard 5-field cron expression mapping when price checks trigger (Default: 3:00 AM daily). |
+| `DISCORD_WEBHOOK_URL` | *Optional* | Target webhook URL to post formatted card embeds directly to a Discord server. |
+| `TELEGRAM_BOT_TOKEN` | *Optional* | Authentication token generated by Telegram's `@BotFather`. |
+| `TELEGRAM_CHAT_ID` | *Optional* | Target user, group, or channel chat ID for Telegram message delivery. |
+| `SMTP_HOST` | *Optional* | The hostname of your SMTP email delivery server. |
+| `SMTP_PORT` | `587` | The port your SMTP mail server listens on (typically `587` for TLS or `465` for SSL). |
+| `SMTP_USER` | *Optional* | Your authentication username for the SMTP mail server. |
+| `SMTP_PASS` | *Optional* | Your password/app key for the SMTP server. |
+| `NOTIFICATION_FROM_EMAIL`| `"no-reply@tracker.io"`| The email sender alias that appears on price drop notifications. |
+| `VITE_API_BASE_URL` | `"http://localhost:5000/api"`| (Frontend) The base endpoint routing frontend requests to the backend server. |
+
+> [!TIP]
+> *   **Discord Webhooks**: Inside Discord, go to **Server Settings** $\rightarrow$ **Integrations** $\rightarrow$ **Webhooks** $\rightarrow$ **New Webhook** to copy your webhook URL.
+> *   **Telegram Alerts**: Message `@BotFather` on Telegram and type `/newbot` to generate a bot token. Then message `@userinfobot` to retrieve your unique account `chatId`.
+
+---
+
+## 🔧 Diagnostics & Operational Commands
+
+Quick cheat-sheet for running common administration and testing commands inside the workspace.
+
+### Monitor Real-Time Crawler Logs
+Watch Playwright extraction logs, cron starts, and notification dispatches:
+```bash
+docker compose logs -f backend
+```
+
+### Access Local Database tables (Prisma Studio)
+Inspect raw product records, price histories, and active alert rows in a GUI spreadsheet:
+```bash
+cd backend
+npx prisma studio
+```
+Access the dashboard at [http://localhost:5555](http://localhost:5555).
+
+### Run Scraper Command-Line Dry Run
+Manually trigger a script to scrape and extract metrics for a specific Flipkart URL:
+```bash
+cd backend
+npx ts-node src/scripts/test-scraper.ts "<FLIPKART_PRODUCT_URL>"
+```
+
+---
+
+## 🔒 Security & Privacy
+
+*   **Zero External Tracking**: All scraping queries and alerts run locally on your host. There are no tracking scripts, analytics cookies, or external servers monitoring the items you track.
+*   **Environment Safety**: The `.env` file containing sensitive connection credentials, Discord tokens, or email passwords is protected by Git via our [.gitignore](backend/.gitignore) rules. Never push this file to public repositories.
+*   **Public Access & SSL**: If you deploy this container publicly on a VPS or cloud provider, **do not** expose raw ports `80` or `5000` to the open web. It is highly recommended to place this stack behind an SSL-secured reverse proxy (such as Caddy, Cloudflare Tunnels, Nginx, or Traefik) to protect dashboard configurations.
