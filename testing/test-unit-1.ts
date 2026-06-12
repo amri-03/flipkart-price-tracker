@@ -1,5 +1,5 @@
-import { validateAndExtractFlipkartId } from "../utils/url.utils";
-import { InvalidUrlError } from "../utils/errors";
+import { validateAndExtractFlipkartId } from "../backend/src/utils/url.utils";
+import { InvalidUrlError } from "../backend/src/utils/errors";
 
 interface TestCase {
     name: string;

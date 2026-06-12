@@ -1,4 +1,4 @@
-import { ScraperService } from "../services/scraper.service";
+import { ScraperService } from "../backend/src/services/scraper.service";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -39,7 +39,7 @@ async function run() {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
             });
-            const dumpPath = path.join(__dirname, "../../temp_diagnostic.html");
+            const dumpPath = path.join(__dirname, "../backend/temp_diagnostic.html");
             fs.writeFileSync(dumpPath, response.data);
             console.log(`\n💾 DIAGNOSTIC: Raw HTML has been written to: \n   ${path.resolve(dumpPath)}`);
             console.log("👉 Open this file in your browser to check if it's a real block or a normal product page.");
