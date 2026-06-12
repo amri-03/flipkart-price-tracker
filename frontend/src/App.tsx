@@ -4,7 +4,8 @@ import {
   useTrackProduct,
   useRefreshProduct,
   useDeleteProduct,
-  Product,
+  useProductHistory,
+  type Product,
 } from "./hooks/useProducts";
 import { PriceChart } from "./components/PriceChart";
 import { AlertModal } from "./components/AlertModal";

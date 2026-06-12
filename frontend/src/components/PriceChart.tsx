@@ -8,7 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { PriceHistoryPoint } from "../hooks/useProducts";
+import { type PriceHistoryPoint } from "../hooks/useProducts";
 
 interface PriceChartProps {
   history: PriceHistoryPoint[];
@@ -83,8 +83,8 @@ export function PriceChart({ history }: PriceChartProps) {
               color: "#fff",
               fontSize: "12px",
             }}
-            formatter={(value: number) => [
-              `₹${value.toLocaleString("en-IN")}`,
+            formatter={(value: any) => [
+              `₹${Number(value).toLocaleString("en-IN")}`,
               "Price",
             ]}
             labelFormatter={(label) => `Date: ${label}`}
