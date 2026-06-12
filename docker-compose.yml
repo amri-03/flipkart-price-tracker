@@ -57,7 +57,7 @@ services:
     container_name: flipkart_tracker_client
     restart: always
     ports:
-      - "80:80" # Maps port 80 of the host to port 80 of the container
+      - "8080:80" # Maps port 8080 of the host to port 80 of the container
     depends_on:
       - backend
 
