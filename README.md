@@ -28,9 +28,6 @@ A lightweight, self-hosted, privacy-first personal price tracking dashboard for 
 
 ## 📸 Screenshots & Interface Demo
 
-> [!NOTE]
-> Add screenshots of your self-hosted instance here to complete the dashboard presentation.
-
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │  🏷️ Flipkart Price Tracker                     [ Personal Dashboard ]  │
@@ -161,10 +158,6 @@ Configure these variables inside your `backend/.env` file.
 | `NOTIFICATION_FROM_EMAIL`| `"no-reply@tracker.io"`| The email sender alias that appears on price drop notifications. |
 | `VITE_API_BASE_URL` | `"http://localhost:5000/api"`| (Frontend) The base endpoint routing frontend requests to the backend server. |
 
-> [!TIP]
-> *   **Discord Webhooks**: Inside Discord, go to **Server Settings** $\rightarrow$ **Integrations** $\rightarrow$ **Webhooks** $\rightarrow$ **New Webhook** to copy your webhook URL.
-> *   **Telegram Alerts**: Message `@BotFather` on Telegram and type `/newbot` to generate a bot token. Then message `@userinfobot` to retrieve your unique account `chatId`.
-
 ---
 
 ## 🔧 Diagnostics & Operational Commands
@@ -189,7 +182,7 @@ Access the dashboard at [http://localhost:5555](http://localhost:5555).
 Manually trigger a script to scrape and extract metrics for a specific Flipkart URL:
 ```bash
 cd backend
-npx ts-node src/scripts/test-scraper.ts "<FLIPKART_PRODUCT_URL>"
+npx ts-node ../testing/test-scraper.ts "<FLIPKART_PRODUCT_URL>"
 ```
 
 ---
