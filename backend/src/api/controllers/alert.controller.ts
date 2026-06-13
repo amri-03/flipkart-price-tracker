@@ -35,7 +35,7 @@ export async function createAlert(req: Request, res: Response, next: NextFunctio
           productId,
           targetPrice,
           notificationChannel: channel,
-          cooldownHours: cooldownHours || 24,
+          cooldownHours: cooldownHours !== undefined ? cooldownHours : 24,
         },
       });
       res.status(201).json(alert);
