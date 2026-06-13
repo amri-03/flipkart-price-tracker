@@ -38,7 +38,7 @@ export function AlertModal({ productId, productTitle, onClose }: AlertModalProps
         productId,
         targetPrice: parsedPrice,
         notificationChannel: channel,
-        cooldownHours: parseInt(cooldown, 10) || 24,
+        cooldownHours: isNaN(parseInt(cooldown, 10)) ? 24 : parseInt(cooldown, 10),
       });
       setTargetPrice("");
     } catch (err: any) {
