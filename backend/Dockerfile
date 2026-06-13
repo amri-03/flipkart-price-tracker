@@ -1,5 +1,5 @@
 # 1. Use the official Playwright Node base image (comes pre-baked with Chromium system dependencies)
-FROM mcr.microsoft.com/playwright:v1.45.0-jammy
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy
 
 # 2. Set the working directory inside the container
 WORKDIR /usr/src/app
