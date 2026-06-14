@@ -9,8 +9,142 @@ import {
 } from "./hooks/useProducts";
 import { PriceChart } from "./components/PriceChart";
 import { AlertModal } from "./components/AlertModal";
+import { apiClient } from "./services/api.client";
 
 export default function App() {
+  const [authRequired, setAuthRequired] = React.useState<boolean | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    apiClient.get("/auth/status")
+      .then((res) => {
+        const required = res.data.authRequired;
+        setAuthRequired(required);
+        if (required) {
+          const stored = localStorage.getItem("admin_password");
+          if (stored) {
+            // Verify stored password
+            apiClient.post("/auth/verify", { password: stored })
+              .then(() => {
+                setIsAuthenticated(true);
+              })
+              .catch(() => {
+                localStorage.removeItem("admin_password");
+                setIsAuthenticated(false);
+              });
+          }
+        } else {
+          setIsAuthenticated(true);
+        }
+      })
+      .catch(() => {
+        // Fallback to public mode on connection error
+        setAuthRequired(false);
+        setIsAuthenticated(true);
+      });
+  }, []);
+
+  const handleLoginSuccess = (password: string) => {
+    localStorage.setItem("admin_password", password);
+    setIsAuthenticated(true);
+    // Reload window to refresh all react-query queries with the new authorization header
+    window.location.reload();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("admin_password");
+    window.location.reload();
+  };
+
+  if (authRequired === null) {
+    return (
+      <div className="min-h-screen bg-gray-50/60 dark:bg-gray-950 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Connecting to server...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authRequired && !isAuthenticated) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  return <Dashboard authRequired={authRequired} onLogout={handleLogout} />;
+}
+
+function LoginPage({ onLoginSuccess }: { onLoginSuccess: (password: string) => void }) {
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!password.trim()) {
+      setError("Please enter a password.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await apiClient.post("/auth/verify", { password });
+      onLoginSuccess(password);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Invalid password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50/60 dark:bg-gray-950 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-md border border-gray-100 dark:border-gray-800/60 w-full max-w-md space-y-6 transition-all duration-300">
+        <div className="text-center space-y-2">
+          <span className="text-3xl block">🔑</span>
+          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">
+            Tracker Login
+          </h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Please enter your password to access the dashboard.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Password</label>
+            <input
+              type="password"
+              placeholder="Enter admin password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm bg-gray-50/50 dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
+          </div>
+
+          {error && (
+            <p className="text-xs text-red-500 font-semibold">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 text-sm transition-colors shadow-md shadow-blue-500/10 cursor-pointer"
+          >
+            {loading ? "Verifying..." : "Login"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface DashboardProps {
+  authRequired: boolean;
+  onLogout: () => void;
+}
+
+function Dashboard({ authRequired, onLogout }: DashboardProps) {
   const { data: products = [], isLoading, error } = useProducts();
   const trackMutation = useTrackProduct();
   const refreshMutation = useRefreshProduct();
@@ -51,9 +185,19 @@ export default function App() {
               Flipkart Price Tracker
             </h1>
           </div>
-          <span className="text-xs px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold border border-blue-100/40 dark:border-blue-800/40">
-            Personal Dashboard
-          </span>
+          <div className="flex items-center space-x-4">
+            <span className="text-xs px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold border border-blue-100/40 dark:border-blue-800/40">
+              Personal Dashboard
+            </span>
+            {authRequired && (
+              <button
+                onClick={onLogout}
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-100/40 dark:border-red-900/40 transition-colors shadow-sm cursor-pointer"
+              >
+                Logout
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -73,7 +217,7 @@ export default function App() {
             <button
               type="submit"
               disabled={trackMutation.isPending}
-              className="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-6 py-2.5 text-sm transition-colors shadow-md shadow-blue-500/10 flex items-center justify-center space-x-2"
+              className="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-6 py-2.5 text-sm transition-colors shadow-md shadow-blue-500/10 flex items-center justify-center space-x-2 cursor-pointer"
             >
               {trackMutation.isPending ? "Parsing Page..." : "Track Product"}
             </button>
@@ -153,13 +297,13 @@ export default function App() {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => setSelectedProduct(product)}
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors cursor-pointer"
                       >
                         Chart 📈
                       </button>
                       <button
                         onClick={() => setActiveAlertProduct(product)}
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors"
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-905/40 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
                       >
                         Alerts 🔔
                       </button>
@@ -169,14 +313,14 @@ export default function App() {
                       <button
                         onClick={() => refreshMutation.mutate(product.id)}
                         disabled={refreshMutation.isPending}
-                        className="text-xs p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                        className="text-xs p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors cursor-pointer"
                         title="Force Check Pricing"
                       >
                         🔄
                       </button>
                       <button
                         onClick={() => deleteMutation.mutate(product.id)}
-                        className="text-xs p-1 hover:bg-red-50 dark:hover:bg-red-950/30 text-gray-400 hover:text-red-500 rounded transition-colors"
+                        className="text-xs p-1 hover:bg-red-50 dark:hover:bg-red-950/30 text-gray-400 hover:text-red-500 rounded transition-colors cursor-pointer"
                         title="Untrack Listing"
                       >
                         🗑️
@@ -223,7 +367,7 @@ function ProductHistoryPanel({ product, onClose }: ProductHistoryPanelProps) {
         </div>
         <button
           onClick={onClose}
-          className="text-xs font-semibold px-2.5 py-1 rounded bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+          className="text-xs font-semibold px-2.5 py-1 rounded bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors cursor-pointer"
         >
           Close Chart ✕
         </button>

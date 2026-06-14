@@ -3,6 +3,8 @@ import cors from "cors";
 import { PORT, NODE_ENV } from "./constants";
 import productRoutes from "./api/routes/product.routes";
 import alertRoutes from "./api/routes/alert.routes";
+import authRoutes from "./api/routes/auth.routes";
+import { requireAuth } from "./api/middleware/auth.middleware";
 import { initializeCronScheduler } from "./jobs/cron.jobs";
 
 const app = express();
@@ -15,9 +17,13 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", environment: NODE_ENV });
 });
 
-// Mount the frozen API endpoints
-app.use("/api/products", productRoutes);
-app.use("/api", alertRoutes);
+// Mount the public authentication routes
+app.use("/api/auth", authRoutes);
+
+// Mount the secured API endpoints using requireAuth middleware guard
+app.use("/api/products", requireAuth, productRoutes);
+app.use("/api", requireAuth, alertRoutes);
+
 
 // Global default error-handler catch middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
