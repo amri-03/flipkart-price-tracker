@@ -11,7 +11,7 @@ Flipkart Price Tracker has two branches:
 
 **Open your PR against `dev`, not `main`.** The GitHub "base" dropdown defaults to `dev`. If you opened a PR against `main` by accident, click "Edit" on the PR and change the base — no rebase needed.
 
-End-users cloning the repo will land on `dev` by default. To run the curated/stable version: `git checkout main` after clone.
+End-users cloning the repo will land on `main` by default. If you want to contribute, run `git checkout dev` after cloning to switch to the active development branch.
 
 ## Before You Start
 
