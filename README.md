@@ -2,6 +2,8 @@
 
 # 🏷️ Flipkart Price Tracker
 
+> **Branch note:** `main` is the default branch and contains the stable curated release. For the latest development changes (which may be unstable), use [`dev`](https://github.com/amri-03/flipkart-price-tracker/tree/dev).
+
 A lightweight, self-hosted, privacy-first personal price tracking dashboard for Flipkart. Built with React, Tailwind CSS, TypeScript, and Playwright to automatically bypass Akamai bot defenses.
 
 ---
@@ -26,7 +28,12 @@ A lightweight, self-hosted, privacy-first personal price tracking dashboard for 
 
 ---
 
-## 📸 Screenshots & Interface Demo
+## 📸 Demo
+
+<details>
+<summary>Screenshots & Interface Demo</summary>
+
+### Personal Dashboard Preview
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -54,9 +61,19 @@ A lightweight, self-hosted, privacy-first personal price tracking dashboard for 
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
+</details>
+
 ---
 
-## 🚀 Quick Start (Docker - Recommended)
+## 🚀 Quick Start
+
+Defaults work out of the box: clone the repository, run the containers, and start tracking prices. The database setup is handled automatically via container networking. You only need to edit the environment variables in `backend/.env` to configure your preferred notification channels (Discord webhooks, Telegram bots, or SMTP mail keys).
+
+When you first spin up the stack, the API server will automatically apply database migrations and start the background cron scheduler.
+
+Looking to contribute, run tests, or perform a manual/developer setup? Please refer to the **[Setup Guide (SETUP.md)](SETUP.md)** for native environment prerequisites and guidelines.
+
+### Docker Compose (Recommended)
 
 Deploy the entire tracker ecosystem in under two minutes using Docker Compose.
 
