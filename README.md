@@ -193,15 +193,3 @@ npx ts-node ../testing/test-scraper.ts "<FLIPKART_PRODUCT_URL>"
 *   **Environment Safety**: The `.env` file containing sensitive connection credentials, Discord tokens, or email passwords is protected by Git via our [.gitignore](backend/.gitignore) rules. Never push this file to public repositories.
 *   **Public Access & SSL**: If you deploy this container publicly on a VPS or cloud provider, **do not** expose raw ports `80` or `5000` to the open web. It is highly recommended to place this stack behind an SSL-secured reverse proxy (such as Caddy, Cloudflare Tunnels, Nginx, or Traefik) to protect dashboard configurations.
 
----
-
-## ❓ Troubleshooting & Common Pitfalls
-
-If you encounter issues during verification or self-hosting:
-*   **Scheduler Times (UTC vs IST):** Docker containers default to UTC. Add `TZ=Asia/Kolkata` under environment configurations to align with your local timezone (IST).
-*   **Email Dispatch (`No recipients defined`):** Docker Compose's `env_file` parser retains Windows CRLF line endings (`\r`). The application code automatically handles this via `.trim()` sanitization, but ensure your `.env` formatting is clean.
-*   **Mailtrap Timeout:** Home ISPs often block ports 25/587. Use port `2525` to bypass local ISP port blocks.
-*   **Empty DB / Port 5432 Conflicts:** Make sure to connect to the container database (password: `postgres_secure_pass`) instead of your local Windows Postgres instance. Query lowercase, plural tables like `products` instead of singular ones.
-
-For detailed walk-throughs on solving these, see the **[Setup & Installation Guide (SETUP.md)](file:///c:/Developer_Workspace/active_projects/Saas%20Development/flipkart-price-tracker/SETUP.md#troubleshooting--common-pitfalls)**.
-

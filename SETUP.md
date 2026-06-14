@@ -6,10 +6,10 @@ This guide provides step-by-step instructions for configuring, deploying, and ru
 
 ## 📋 Prerequisites
 
-Before starting, ensure you have the following installed:
-*   **Docker & Docker Compose** (Highly Recommended) — to run the entire ecosystem with one command.
-*   **Node.js (v20+) & npm** (If running natively/developing).
-*   **PostgreSQL** (If running natively).
+Before starting, ensure you have the following:
+*   **Docker & Docker Compose** (Highly Recommended) — to run the entire ecosystem (including the database, backend, and frontend) with one command. **Note:** If you use Docker, you do NOT need to install PostgreSQL or Node.js on your local machine.
+*   **Node.js (v20+) & npm** (Only required if running natively/developing).
+*   **PostgreSQL** (Only required if running natively/developing).
 
 ---
 
@@ -30,7 +30,7 @@ The application requires environment variables to connect to your database and d
 ### Configuration Breakdown
 
 *   `DATABASE_URL`: The PostgreSQL connection string. If using Docker, this is configured automatically in the container ecosystem.
-*   `SCRAPER_CRON_SCHEDULE`: A cron expression indicating when price checks should run. The default `"0 3 * * *"` runs daily at 3:00 AM.
+*   `SCRAPER_CRON_SCHEDULE`: A cron expression indicating when price checks should run. The default `"0 3 * * *"` runs daily at 3:00 AM local time (Indian Standard Time / IST) since the container is synchronized to the local timezone.
 *   `DISCORD_WEBHOOK_URL`: (Optional) Paste your Discord webhook link to receive alerts in a server channel. 
     *   *To create one: Go to Server Settings $\rightarrow$ Integrations $\rightarrow$ Webhooks $\rightarrow$ Create Webhook $\rightarrow$ Copy Webhook URL.*
 *   `TELEGRAM_BOT_TOKEN` & `TELEGRAM_CHAT_ID`: (Optional) Used to deliver notifications via Telegram.
@@ -112,7 +112,7 @@ If you prefer to run the components natively on your host machine for developmen
 
 ## 🧪 Testing the Codebase
 
-We have isolated our testing utilities inside the root `testing/` folder.
+All testing utilities are located inside the root `testing/` folder.
 
 ### 1. Run Unit Tests (URL Parsing Validation)
 Verify the URL validation and FSN parsing code:
@@ -135,37 +135,28 @@ On success, this extracts the product details (Title, Current Price, Image URL) 
 
 ## ❓ Troubleshooting & Common Pitfalls
 
-### 1. Scheduler triggers at unexpected times (Timezone Offset)
-*   **The Problem:** By default, Linux containers run on UTC time. A schedule like `"0 3 * * *"` (3:00 AM) triggers at exactly **8:30 AM IST** (Indian Standard Time, which is UTC+5:30).
-*   **The Solution:** You can synchronize your containers with your local timezone by adding the `TZ` environment variable to your services in `docker-compose.yml`:
-    ```yaml
-    environment:
-      - TZ=Asia/Kolkata
-    ```
-    Once restarted, a `0 3 * * *` schedule will execute at exactly 3:00 AM local time.
-
-### 2. SMTP Alerts fail with `No recipients defined` (Windows `\r` line endings)
-*   **The Problem:** If you edit your `.env` file on Windows (which uses CRLF line endings) and load it into Docker using `env_file`, Docker preserves the trailing carriage returns (`\r`). This can result in variables being read with a trailing control character (e.g. `no-reply@tracker.io\r`), which breaks SMTP address parsing.
-*   **The Solution:** The backend contains a built-in sanitization helper (`cleanEnvVar`) that automatically trims spaces and strips trailing `\r` characters. If you face issues on other clients, convert your `.env` line endings to LF (Unix format) using your text editor (e.g., VS Code or Notepad++).
-
-### 3. SMTP Mailtrap / Gmail alerts timeout or fail
-*   **The Problem:** Home ISPs often block ports `25` and `587` to prevent spam, resulting in SMTP connection timeouts.
-*   **The Solution:** For Mailtrap, use port **`2525`** instead of `587` to bypass local ISP blocks. For Gmail, ensure you are using a dedicated 16-character **App Password** (not your regular login password).
-
-### 4. Database port conflicts (Port 5432)
-*   **The Problem:** If you already have PostgreSQL installed directly on your host computer (running as a Windows service on port 5432), Docker Compose will fail to bind to port 5432.
-*   **The Solution:** Either stop your host's local PostgreSQL service (via Windows Services console) before running `docker compose up`, or change the host port binding in your `docker-compose.yml` to `"5433:5432"` and connect pgAdmin to port `5433`.
-
-### 5. Querying the Database returns `0 rows` or syntax errors
-*   **The Problem:** You connect pgAdmin to the default port and see empty tables, or running `SELECT * FROM Product;` throws a syntax error.
+### 1. Database Port Conflicts (Port 5432 Already in Use)
+*   **The Problem:** If you already have PostgreSQL installed directly on your host computer (running as a native service on port 5432), Docker Compose will fail to start the database container, logging a port conflict error (`Bind for 0.0.0.0:5432 failed: port is already allocated`).
 *   **The Solution:** 
-    *   Make sure you connect pgAdmin to the **Docker database container** using password `postgres_secure_pass` (not your host Postgres instance).
-    *   Prisma maps singular models to lowercase, pluralized SQL tables. You must query **`products`**, **`alerts`**, or **`price_histories`**:
-        ```sql
-        SELECT * FROM products;
-        ```
+    *   Stop your host's local PostgreSQL service (e.g., in Windows, open **Services** console, find **postgresql-x64-15**, and click **Stop**) before running `docker compose up`.
+    *   Alternatively, edit `docker-compose.yml` to change the database host port mapping from `"5432:5432"` to `"5433:5432"`.
 
-### 6. Quiet Window behaves unexpectedly
-*   **The Quiet Window (Cooldown):** Determines how many hours the app must wait before sending another alert for the same product after one triggers. This prevents spam.
-*   **Instantly triggering alerts:** Set the Quiet Window parameter to **`0`** in the UI to allow alert dispatches on every single crawl.
+### 2. How to Inspect Database Tables (pgAdmin / DBeaver)
+If you want to view, verify, or query the data scraped by the application:
+1.  Open your database client (such as pgAdmin or DBeaver) and create a **New Server Connection**.
+2.  Configure the connection details:
+    *   **Host Name / Address:** `localhost`
+    *   **Port:** `5432` (or `5433` if you modified it in Step 1)
+    *   **Maintenance Database:** `flipkart_tracker`
+    *   **Username:** `postgres`
+    *   **Password:** `postgres_secure_pass` (do not use your local Windows Postgres password)
+3.  Once connected, open the Query Tool and run:
+    ```sql
+    SELECT * FROM products;
+    ```
+    *Note: Prisma maps models to lowercase, pluralized table names. Ensure you query `products`, `price_histories`, or `alerts` instead of singular model names.*
+
+### 3. Understanding the "Quiet Window" (Cooldown Hours)
+*   **How it works:** When creating an alert rule, the **Quiet Window (hrs)** setting acts as a cooldown period. Once a price drop triggers an alert, the app stores that timestamp. It will then block any further notifications for that specific product until the specified number of hours has elapsed. This prevents your phone or inbox from being spammed on every scraping cycle.
+*   **How to trigger alerts on every check:** If you want to receive an alert on every single scraper run whenever the price is below your target, set the Quiet Window to **`0`**.
 
