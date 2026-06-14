@@ -41,6 +41,7 @@ export function AlertModal({ productId, productTitle, onClose }: AlertModalProps
         cooldownHours: isNaN(parseInt(cooldown, 10)) ? 24 : parseInt(cooldown, 10),
       });
       setTargetPrice("");
+      setCooldown("1");
     } catch (err: any) {
       if (err.response?.status === 409) {
         setErrorMessage("An identical alert trigger already exists on this channel.");

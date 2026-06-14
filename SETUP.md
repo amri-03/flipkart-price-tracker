@@ -127,13 +127,13 @@ Manually test Playwright crawling against a real Flipkart product URL:
 ```bash
 # From the root directory:
 cd backend
-npx ts-node ../testing/test-scraper.ts "https://www.flipkart.com/apple-iphone-15-black-128-gb/p/itm2d83c274b1263?pid=MOBGTAGPA3E4ZZGK"
+npx ts-node ../testing/test-scraper.ts "https://www.flipkart.com/apple-iphone-16-teal-128-gb/p/itmce4bb3f55cc2f?pid=MOBH4DQFSY9ETDUU"
 ```
 On success, this extracts the product details (Title, Current Price, Image URL) and dumps the JSON payload directly into your terminal.
 
 ---
 
-## ❓ Troubleshooting & Common Pitfalls
+## ❓ Troubleshooting & Helper Guides
 
 ### 1. Database Port Conflicts (Port 5432 Already in Use)
 *   **The Problem:** If you already have PostgreSQL installed directly on your host computer (running as a native service on port 5432), Docker Compose will fail to start the database container, logging a port conflict error (`Bind for 0.0.0.0:5432 failed: port is already allocated`).
