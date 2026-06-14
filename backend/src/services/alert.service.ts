@@ -76,15 +76,20 @@ export class AlertService {
   ): Promise<void> {
     const message = `🚨 **PRICE DROP ALERT!** 🚨\n\n**Product:** ${title}\n**Current Price:** ₹${current.toLocaleString("en-IN")}\n**Target Price:** ₹${target.toLocaleString("en-IN")}\n\n👉 Buy Now: ${url}`;
 
+    const cleanEnvVar = (val: string | undefined): string => {
+      if (!val) return "";
+      return val.replace(/^['"]|['"]$/g, "").trim();
+    };
+
     if (channel === "DISCORD") {
-      const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+      const webhookUrl = cleanEnvVar(process.env.DISCORD_WEBHOOK_URL);
       if (!webhookUrl) throw new Error("DISCORD_WEBHOOK_URL is missing in environment profiles.");
       await axios.post(webhookUrl, { content: message });
     } 
     
     else if (channel === "TELEGRAM") {
-      const botToken = process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = process.env.TELEGRAM_CHAT_ID;
+      const botToken = cleanEnvVar(process.env.TELEGRAM_BOT_TOKEN);
+      const chatId = cleanEnvVar(process.env.TELEGRAM_CHAT_ID);
       if (!botToken || !chatId) {
         throw new Error("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing in environmental profiles.");
       }
@@ -96,11 +101,12 @@ export class AlertService {
     } 
     
     else if (channel === "EMAIL") {
-      const host = process.env.SMTP_HOST;
-      const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-      const user = process.env.SMTP_USER;
-      const pass = process.env.SMTP_PASS;
-      const from = process.env.NOTIFICATION_FROM_EMAIL || "no-reply@tracker.io";
+      const host = cleanEnvVar(process.env.SMTP_HOST);
+      const portStr = cleanEnvVar(process.env.SMTP_PORT);
+      const port = portStr ? parseInt(portStr, 10) : 587;
+      const user = cleanEnvVar(process.env.SMTP_USER);
+      const pass = cleanEnvVar(process.env.SMTP_PASS);
+      const from = cleanEnvVar(process.env.NOTIFICATION_FROM_EMAIL) || "no-reply@tracker.io";
 
       if (!host || !user || !pass) {
         throw new Error("SMTP server configurations are incomplete in env profiles.");
