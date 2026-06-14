@@ -138,7 +138,7 @@ On success, this extracts the product details (Title, Current Price, Image URL) 
 ### 1. Database Port Conflicts (Port 5432 Already in Use)
 *   **The Problem:** If you already have PostgreSQL installed directly on your host computer (running as a native service on port 5432), Docker Compose will fail to start the database container, logging a port conflict error (`Bind for 0.0.0.0:5432 failed: port is already allocated`).
 *   **The Solution:** 
-    *   Stop your host's local PostgreSQL service (e.g., in Windows, open **Services** console, find **postgresql-x64-15**, and click **Stop**) before running `docker compose up`.
+    *   Stop your host's local PostgreSQL service (e.g., in Windows, open the **Services** console, find the **PostgreSQL** service, and click **Stop**) before running `docker compose up`.
     *   Alternatively, edit `docker-compose.yml` to change the database host port mapping from `"5432:5432"` to `"5433:5432"`.
 
 ### 2. How to Inspect Database Tables (pgAdmin / DBeaver)
