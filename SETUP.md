@@ -130,3 +130,42 @@ cd backend
 npx ts-node ../testing/test-scraper.ts "https://www.flipkart.com/apple-iphone-15-black-128-gb/p/itm2d83c274b1263?pid=MOBGTAGPA3E4ZZGK"
 ```
 On success, this extracts the product details (Title, Current Price, Image URL) and dumps the JSON payload directly into your terminal.
+
+---
+
+## ❓ Troubleshooting & Common Pitfalls
+
+### 1. Scheduler triggers at unexpected times (Timezone Offset)
+*   **The Problem:** By default, Linux containers run on UTC time. A schedule like `"0 3 * * *"` (3:00 AM) triggers at exactly **8:30 AM IST** (Indian Standard Time, which is UTC+5:30).
+*   **The Solution:** You can synchronize your containers with your local timezone by adding the `TZ` environment variable to your services in `docker-compose.yml`:
+    ```yaml
+    environment:
+      - TZ=Asia/Kolkata
+    ```
+    Once restarted, a `0 3 * * *` schedule will execute at exactly 3:00 AM local time.
+
+### 2. SMTP Alerts fail with `No recipients defined` (Windows `\r` line endings)
+*   **The Problem:** If you edit your `.env` file on Windows (which uses CRLF line endings) and load it into Docker using `env_file`, Docker preserves the trailing carriage returns (`\r`). This can result in variables being read with a trailing control character (e.g. `no-reply@tracker.io\r`), which breaks SMTP address parsing.
+*   **The Solution:** The backend contains a built-in sanitization helper (`cleanEnvVar`) that automatically trims spaces and strips trailing `\r` characters. If you face issues on other clients, convert your `.env` line endings to LF (Unix format) using your text editor (e.g., VS Code or Notepad++).
+
+### 3. SMTP Mailtrap / Gmail alerts timeout or fail
+*   **The Problem:** Home ISPs often block ports `25` and `587` to prevent spam, resulting in SMTP connection timeouts.
+*   **The Solution:** For Mailtrap, use port **`2525`** instead of `587` to bypass local ISP blocks. For Gmail, ensure you are using a dedicated 16-character **App Password** (not your regular login password).
+
+### 4. Database port conflicts (Port 5432)
+*   **The Problem:** If you already have PostgreSQL installed directly on your host computer (running as a Windows service on port 5432), Docker Compose will fail to bind to port 5432.
+*   **The Solution:** Either stop your host's local PostgreSQL service (via Windows Services console) before running `docker compose up`, or change the host port binding in your `docker-compose.yml` to `"5433:5432"` and connect pgAdmin to port `5433`.
+
+### 5. Querying the Database returns `0 rows` or syntax errors
+*   **The Problem:** You connect pgAdmin to the default port and see empty tables, or running `SELECT * FROM Product;` throws a syntax error.
+*   **The Solution:** 
+    *   Make sure you connect pgAdmin to the **Docker database container** using password `postgres_secure_pass` (not your host Postgres instance).
+    *   Prisma maps singular models to lowercase, pluralized SQL tables. You must query **`products`**, **`alerts`**, or **`price_histories`**:
+        ```sql
+        SELECT * FROM products;
+        ```
+
+### 6. Quiet Window behaves unexpectedly
+*   **The Quiet Window (Cooldown):** Determines how many hours the app must wait before sending another alert for the same product after one triggers. This prevents spam.
+*   **Instantly triggering alerts:** Set the Quiet Window parameter to **`0`** in the UI to allow alert dispatches on every single crawl.
+
