@@ -1,162 +1,99 @@
-# ⚙️ Setup & Installation Guide
+# Contributing to Flipkart Price Tracker
 
-This guide provides step-by-step instructions for configuring, deploying, and running the **Flipkart Price Tracker** on your local machine or VPS.
+Thanks for helping. The project is moving quickly, so the best contributions are focused, easy to review, and easy to test.
 
----
+## Branch model
 
-## 📋 Prerequisites
+Flipkart Price Tracker has two branches:
 
-Before starting, ensure you have the following:
-*   **Docker & Docker Compose** (Highly Recommended) — to run the entire ecosystem (including the database, backend, and frontend) with one command. **Note:** If you use Docker, you do NOT need to install PostgreSQL or Node.js on your local machine.
-*   **Node.js (v20+) & npm** (Only required if running natively/developing).
-*   **PostgreSQL** (Only required if running natively/developing).
+- **`dev`** — where all PRs land. Things can be in flux here; the merge button gets used freely.
+- **`main`** — what users run. Curated and tested by the maintainer. Fast-forwarded to a stable `dev` commit at each release.
 
----
+**Open your PR against `dev`, not `main`.** The GitHub "base" dropdown defaults to `dev`. If you opened a PR against `main` by accident, click "Edit" on the PR and change the base — no rebase needed.
 
-## 🛠️ Step 1: Environment Configuration
+End-users cloning the repo will land on `dev` by default. To run the curated/stable version: `git checkout main` after clone.
 
-The application requires environment variables to connect to your database and dispatch alerts.
+## Before You Start
 
-1.  Navigate to the `backend/` directory:
-    ```bash
-    cd backend
-    ```
-2.  Copy the environment template file:
-    ```bash
-    cp .env.example .env
-    ```
-3.  Open `backend/.env` in a text editor and update the variables:
+- Search existing issues and pull requests before opening a new one.
+- Prefer one bug fix or feature per pull request.
+- Avoid broad rewrites, formatting-only changes, or moving many files unless the issue is specifically about structure.
+- If you want to work on a large feature, open an issue first and describe the approach.
 
-### Configuration Breakdown
+## Setup
 
-*   `DATABASE_URL`: The PostgreSQL connection string. If using Docker, this is configured automatically in the container ecosystem.
-*   `SCRAPER_CRON_SCHEDULE`: A cron expression indicating when price checks should run. The default `"0 3 * * *"` runs daily at 3:00 AM local time (Indian Standard Time / IST) since the container is synchronized to the local timezone.
-*   `DISCORD_WEBHOOK_URL`: (Optional) Paste your Discord webhook link to receive alerts in a server channel. 
-    *   *To create one: Go to Server Settings $\rightarrow$ Integrations $\rightarrow$ Webhooks $\rightarrow$ Create Webhook $\rightarrow$ Copy Webhook URL.*
-*   `TELEGRAM_BOT_TOKEN` & `TELEGRAM_CHAT_ID`: (Optional) Used to deliver notifications via Telegram.
-    *   *To create a bot: Start a chat with `@BotFather` on Telegram, send `/newbot`, and copy the API token.*
-    *   *To get your Chat ID: Start a chat with your new bot, then query `@userinfobot` to retrieve your account ID.*
-*   `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS`: (Optional) SMTP relay credentials to deliver alerts straight to your inbox.
-*   `NOTIFICATION_FROM_EMAIL`: The email sender name display alias (e.g. `no-reply@tracker.io`).
+Docker is the recommended path for normal testing:
 
----
-
-## 🐋 Option A: Deploying with Docker (Recommended)
-
-Docker packages all dependencies—including the headless Chromium libraries required by Playwright—ensuring the tracker runs smoothly on any system.
-
-1.  Navigate to the repository root directory:
-    ```bash
-    cd ..
-    ```
-2.  Build and boot up the containers in detached (background) mode:
-    ```bash
-    docker compose up --build -d
-    ```
-    *   **What happens under the hood**: Docker launches PostgreSQL (`db`), builds the scraper API and runs migrations (`backend`), and compiles the React app inside Nginx (`frontend`).
-3.  Confirm all services are running cleanly:
-    ```bash
-    docker compose ps
-    ```
-
-### Accessing the Tracker
-*   **Web Dashboard (Nginx)**: Open [http://localhost](http://localhost) (HTTP Port 80).
-*   **REST API (Express)**: Open [http://localhost:5000/api](http://localhost:5000/api).
-
----
-
-## 💻 Option B: Running Natively for Development
-
-If you prefer to run the components natively on your host machine for development:
-
-### 1. Backend Setup
-1.  Navigate to the `backend/` folder:
-    ```bash
-    cd backend
-    ```
-2.  Install packages:
-    ```bash
-    npm install
-    ```
-3.  Install Chromium binaries for Playwright:
-    ```bash
-    npx playwright install chromium
-    ```
-4.  Apply the database schema and generate the Prisma Client types:
-    ```bash
-    npx prisma generate
-    npx prisma db push
-    ```
-5.  Start the API server in watch mode:
-    ```bash
-    npm run dev
-    ```
-
-### 2. Frontend Setup
-1.  Open a new terminal window and navigate to the `frontend/` folder:
-    ```bash
-    cd frontend
-    ```
-2.  Install packages:
-    ```bash
-    npm install
-    ```
-3.  Configure `frontend/.env` if you want to override the backend endpoint URL (defaults to `http://localhost:5000/api`).
-4.  Launch the Vite development server:
-    ```bash
-    npm run dev
-    ```
-    The Vite console will serve the client at [http://localhost:5173](http://localhost:5173).
-
----
-
-## 🧪 Testing the Codebase
-
-All testing utilities are located inside the root `testing/` folder.
-
-### 1. Run Unit Tests (URL Parsing Validation)
-Verify the URL validation and FSN parsing code:
 ```bash
-# From the root directory:
-cd backend
-npx ts-node ../testing/test-unit-1.ts
+git clone https://github.com/amri-03/flipkart-price-tracker.git
+cd flipkart-price-tracker
+cp backend/.env.example backend/.env
+docker compose up -d --build
 ```
 
-### 2. Run Scraper Dry Run
-Manually test Playwright crawling against a real Flipkart product URL:
+Manual development requires Node.js v20+ and a running PostgreSQL instance:
+
 ```bash
-# From the root directory:
+# Setup backend API server
+cd backend
+npm install
+npx playwright install chromium
+npx prisma generate
+npx prisma db push
+npm run dev
+
+# Setup frontend Vite dev server (in a separate terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Windows command line (CMD) is not recommended for native run scripts due to environment handling differences; please use a standard Unix-like shell or PowerShell with bypass flags for local developer setup.
+
+## Running Checks
+
+Run the smallest relevant checks for your change:
+
+```bash
+# Run backend URL validation unit test
+cd backend
+npx ts-node ../testing/test-unit-1.ts
+
+# Run Playwright scraper dry-run test
 cd backend
 npx ts-node ../testing/test-scraper.ts "https://www.flipkart.com/apple-iphone-16-teal-128-gb/p/itmce4bb3f55cc2f?pid=MOBH4DQFSY9ETDUU"
 ```
-On success, this extracts the product details (Title, Current Price, Image URL) and dumps the JSON payload directly into your terminal.
 
----
+For Docker-related changes:
 
-## ❓ Troubleshooting & Helper Guides
+```bash
+docker compose config
+docker compose up -d --build
+docker compose logs --tail=120 backend
+```
 
-### 1. Database Port Conflicts (Port 5432 Already in Use)
-*   **The Problem:** If you already have PostgreSQL installed directly on your host computer (running as a native service on port 5432), Docker Compose will fail to start the database container, logging a port conflict error (`Bind for 0.0.0.0:5432 failed: port is already allocated`).
-*   **The Solution:** 
-    *   Stop your host's local PostgreSQL service (e.g., in Windows, open the **Services** console, find the **PostgreSQL** service, and click **Stop**) before running `docker compose up`.
-    *   Alternatively, edit `docker-compose.yml` to change the database host port mapping from `"5432:5432"` to `"5433:5432"`.
+Mention what you ran in the pull request description. If you could not run a check, say so.
 
-### 2. How to Inspect Database Tables (pgAdmin / DBeaver)
-If you want to view, verify, or query the data scraped by the application:
-1.  Open your database client (such as pgAdmin or DBeaver) and create a **New Server Connection**.
-2.  Configure the connection details:
-    *   **Host Name / Address:** `localhost`
-    *   **Port:** `5432` (or `5433` if you modified it in Step 1)
-    *   **Maintenance Database:** `flipkart_tracker`
-    *   **Username:** `postgres`
-    *   **Password:** `postgres_secure_pass` (do not use your local Windows Postgres password)
-3.  Once connected, open the Query Tool and run:
-    ```sql
-    SELECT * FROM products;
-    ```
-    *Note: Prisma maps models to lowercase, pluralized table names. Ensure you query `products`, `price_histories`, or `alerts` instead of singular model names.*
+## Pull Requests
 
-### 3. Understanding the "Quiet Window" (Cooldown Hours)
-*   **How it works:** When creating an alert rule, the **Quiet Window (hrs)** setting acts as a cooldown period. Once a price drop triggers an alert, the app stores that timestamp. It will then block any further notifications for that specific product until the specified number of hours has elapsed. This prevents your phone or inbox from being spammed on every scraping cycle.
-*   **How to trigger alerts on every check:** If you want to receive an alert on every single scraper run whenever the price is below your target, set the Quiet Window to **`0`**.
+Good pull requests usually include:
 
+- A short explanation of the bug or feature.
+- The files or areas changed.
+- Manual test steps or automated test results from running the actual app, not just the test suite.
+- Screenshots or short recordings for UI changes.
+- Links to related issues, for example `Fixes #123`.
+
+Please keep PRs small. Large PRs that mix unrelated cleanup, formatting, refactors, and behavior changes are much harder to review.
+
+> **Auto-generated PRs.** If you are running an LLM agent (Devin, Cursor, OpenHands, Claude Code, etc.) against this repo: please open an issue describing the problem first instead of opening a PR directly. Bulk agent-generated PRs that don't match the project's visual style or contribution format will be closed without review, even when the underlying fix is correct.
+
+## Style and Visual Changes
+
+Flipkart Price Tracker has an intentional visual style. PRs that ignore it will be closed without merge, no matter how correct the underlying code is.
+
+Before submitting any change that affects what the app looks like — buttons, icons, fonts, colors, spacing, layout, CSS, HTML, SVG, or React components:
+
+1. **Run the app locally** and view the change in a browser. Type-checks and unit tests are not enough.
+2. **Attach a screenshot or short clip** of the change in the running app. Add a mobile screenshot too if the change affects mobile responsiveness.
+3. **Match the design specs:** Avoid introducing custom Tailwind configurations unless requested. Use vanilla CSS and coordinate with the existing layout tokens for premium UI cohesion.
