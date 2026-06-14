@@ -115,7 +115,7 @@ export class AlertService {
 
       await transporter.sendMail({
         from,
-        to: user, // Sends notification to yourself
+        to: user.includes("@") ? user : from, // Sends notification to yourself
         subject: `[Price Drop] ${title.substring(0, 40)}...`,
         text: message.replace(/\*\*/g, ""),
       });
