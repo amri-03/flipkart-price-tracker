@@ -28,6 +28,7 @@ services:
       dockerfile: Dockerfile
     container_name: flipkart_tracker_api
     restart: always
+    ipc: host
     ports:
       - "5000:5000"
     env_file:
