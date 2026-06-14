@@ -20,12 +20,16 @@ apiClient.interceptors.request.use((config) => {
 });
 
 // Clear credentials and force reload if any request is rejected as unauthorized (401)
+// Skip reload for the verification endpoint to allow login error state to render correctly
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem("admin_password");
-      window.location.reload();
+      const isAuthVerify = error.config?.url?.includes("/auth/verify");
+      if (!isAuthVerify) {
+        localStorage.removeItem("admin_password");
+        window.location.reload();
+      }
     }
     return Promise.reject(error);
   }

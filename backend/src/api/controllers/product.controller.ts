@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../services/db.service";
 import { ScraperService } from "../../services/scraper.service";
+import { AlertService } from "../../services/alert.service";
 
 const scraperService = new ScraperService();
+const alertService = new AlertService();
 
 /**
  * POST /api/products
@@ -156,6 +158,14 @@ export async function refreshProduct(req: Request, res: Response, next: NextFunc
 
       return updated;
     });
+
+    // Check alerts and dispatch notifications if criteria is met
+    await alertService.checkAndDispatchAlerts(
+      product.id,
+      scraped.currentPrice,
+      product.title,
+      product.url
+    );
 
     res.status(200).json(updatedProduct);
   } catch (error: any) {
