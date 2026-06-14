@@ -63,7 +63,7 @@ Defaults work out of the box: clone the repository, run the containers, and star
 
 When you first spin up the stack, the API server will automatically apply database migrations and start the background cron scheduler.
 
-Looking to contribute, run tests, or perform a manual/developer setup? Please refer to the **[Setup Guide (SETUP.md)](SETUP.md)** for native environment prerequisites and guidelines.
+Looking to contribute, run tests, or perform a manual/developer setup? Please refer to the **[Contributing Guide (CONTRIBUTING.md)](CONTRIBUTING.md)** for native environment prerequisites and guidelines.
 
 ### Docker Compose (Recommended)
 
