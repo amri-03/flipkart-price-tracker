@@ -40,24 +40,28 @@ export class AlertService {
 
         if (isCooledDown) {
           try {
-            // 3. Router dispatch based on selected channel
-            await this.dispatchNotification(
-              alert.notificationChannel,
-              productTitle,
-              currentPrice,
-              targetPriceNum,
-              productUrl
-            );
-
-            // 4. Update the DB state to reset the cooldown window
+            // 3. Update the DB state first to reset the cooldown window and prevent concurrency race conditions
             await prisma.alert.update({
               where: { id: alert.id },
               data: { lastTriggeredAt: now },
             });
 
-            console.log(`[ALERT] Dispatched notification successfully to ${alert.notificationChannel} for product "${productTitle.substring(0, 30)}..."`);
+            // 4. Router dispatch based on selected channel (non-blocking background call)
+            this.dispatchNotification(
+              alert.notificationChannel,
+              productTitle,
+              currentPrice,
+              targetPriceNum,
+              productUrl
+            )
+              .then(() => {
+                console.log(`[ALERT] Dispatched notification successfully to ${alert.notificationChannel} for product "${productTitle.substring(0, 30)}..."`);
+              })
+              .catch((error: any) => {
+                console.error(`[ALERT ERROR] Failed to dispatch alert on channel ${alert.notificationChannel}:`, error.message);
+              });
           } catch (error: any) {
-            console.error(`[ALERT ERROR] Failed to dispatch alert on channel ${alert.notificationChannel}:`, error.message);
+            console.error(`[ALERT DB ERROR] Failed to update alert timestamp:`, error.message);
           }
         }
       }
