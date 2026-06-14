@@ -1,14 +1,10 @@
-─────────────────────────────────────────────── ⊹ ࣪ ˖
-
-# 🏷️ Flipkart Price Tracker
+# Flipkart Price Tracker
 
 > **Branch note:** `main` is the default branch and contains the stable curated release. For the latest development changes (which may be unstable), use [`dev`](https://github.com/amri-03/flipkart-price-tracker/tree/dev).
 
 A lightweight personal price tracking dashboard for Flipkart. Built with React, Tailwind CSS, TypeScript, and Playwright to automatically bypass Akamai bot defenses.
 
----
-
-## ✨ Core Features
+## Features
 
 *   **Automated Price Ingestion**  
     `node-cron` orchestrates automated pricing updates in the background on a customizable schedule, recording price movement history over time.
@@ -26,9 +22,7 @@ A lightweight personal price tracking dashboard for Flipkart. Built with React, 
 *   **100% Self-Hosted**  
     Run completely on your own hardware using a local PostgreSQL instance. No third-party subscriptions, no telemetry, and no vendor lock-in.
 
----
-
-## 📸 Demo
+## Demo
 
 <details>
 <summary>Screenshots & Interface Demo</summary>
@@ -63,9 +57,7 @@ A lightweight personal price tracking dashboard for Flipkart. Built with React, 
 
 </details>
 
----
-
-## 🚀 Quick Start
+## Quick Start
 
 Defaults work out of the box: clone the repository, run the containers, and start tracking prices. The database setup is handled automatically via container networking. You only need to edit the environment variables in `backend/.env` to configure your preferred notification channels (Discord webhooks, Telegram bots, or SMTP mail keys).
 
@@ -79,58 +71,67 @@ Looking to contribute, run tests, or perform a manual/developer setup? Please re
 git clone https://github.com/amri-03/flipkart-price-tracker.git
 cd flipkart-price-tracker
 
-cp backend/.env.example backend/.env       # optional, but recommended for configuring custom notification channels
-
-docker compose up --build -d
+cp backend/.env.example backend/.env       # optional, recommended for alerts
 ```
+
+Run `docker compose up --build -d` to build and start the containers.
 
 When the containers are healthy, Nginx will serve the web dashboard on port 80 and the API will listen on port 5000. On the first startup, the backend automatically runs database migrations (`npx prisma migrate deploy`) and boots the cron scheduler.
 
 Open `http://localhost` in your browser to access the web dashboard. The backend REST API endpoints are accessible at `http://localhost:5000/api`. If you want to change the bound ports, configure the port overrides in your `.env` file.
 
----
-
-## 🛠️ Manual / Developer Setup (Native)
-
-For active development, you can run the components natively on your host machine.
+## Developer Setup
 
 ### Native Linux / macOS
 
 ```bash
 git clone https://github.com/amri-03/flipkart-price-tracker.git
 cd flipkart-price-tracker
-
-# Setup backend
 cd backend
-npm install
-npx playwright install chromium
-npx prisma generate
-npx prisma db push
-npm run dev &
-
-# Setup frontend
+npm install                  # install API dependencies
+npx playwright install chromium # install crawler browser
+npx prisma generate          # generate DB client types
+npx prisma db push           # apply database schema
+npm run dev &                # start backend api server
 cd ../frontend
-npm install
-npm run dev
+npm install                  # install UI dependencies
+npm run dev                  # start UI development server
 ```
 
-Requirements: Node.js (v20+), npm, and a running PostgreSQL instance with database credentials configured in `backend/.env`.
+**Requirements**: Node.js (v20+ recommended) to run the server and compile frontend assets, npm to manage packages, and a running PostgreSQL instance to store product and price histories. Playwright requires Chromium browser binaries to fetch Flipkart pages and extract prices.
+
+Open `http://localhost:5173` to access the dashboard, and `http://localhost:5000` to interact with the backend API.
 
 ### Native Windows
 
+**One command launcher** (automatically installs dependencies, configures local database, and runs both servers):
 ```bash
 git clone https://github.com/amri-03/flipkart-price-tracker.git
 cd flipkart-price-tracker
 .\start-windows.bat
 ```
 
-Requirements: Node.js (v20+), npm, and a running PostgreSQL instance. Ensure the `DATABASE_URL` in `backend/.env` points to your PostgreSQL database.
+**Manual installation** (do it by hand):
+```cmd
+:: Setup backend server
+cd backend
+npm install                  # install API dependencies
+npx playwright install chromium # install crawler browser
+npx prisma generate          # generate DB client types
+npx prisma db push           # apply database schema
+start npm run dev            # run API server in separate console
 
-Accessing the Applications: The local Vite console will serve the interface on `http://localhost:5173`, and the Express API server will listen on `http://localhost:5000`.
+:: Setup frontend dashboard
+cd ..\frontend
+npm install                  # install UI dependencies
+start npm run dev            # run Vite development server
+```
 
----
+**Requirements**: Node.js (v20+ recommended) to run package manager and runtimes, and a running PostgreSQL instance to store tracked items. Ensure your `DATABASE_URL` in `backend/.env` is configured correctly.
 
-## ⚙️ Environmental Configuration Matrix
+Open `http://localhost:5173` to access the dashboard, and `http://localhost:5000` to interact with the backend API.
+
+## Environmental Configuration Matrix
 
 Configure these variables inside your `backend/.env` file.
 
@@ -138,7 +139,7 @@ Configure these variables inside your `backend/.env` file.
 | :--- | :--- | :--- |
 | `PORT` | `5000` | The host port binding for the backend Express application. |
 | `DATABASE_URL` | *Required* | Connection string to your PostgreSQL instance. |
-| `SCRAPER_CRON_SCHEDULE` | `"0 3 * * *"` | Standard 5-field cron expression mapping when price checks trigger (Default: 3:00 AM daily). |
+| `SCRAPER_CRON_SCHEDULE` | `"0 3 * * *"` | Standard 5-field cron expression mapping when price checks trigger (Default: 3:00 AM daily, local timezone / IST). |
 | `DISCORD_WEBHOOK_URL` | *Optional* | Target webhook URL to post formatted card embeds directly to a Discord server. |
 | `TELEGRAM_BOT_TOKEN` | *Optional* | Authentication token generated by Telegram's `@BotFather`. |
 | `TELEGRAM_CHAT_ID` | *Optional* | Target user, group, or channel chat ID for Telegram message delivery. |
@@ -149,9 +150,7 @@ Configure these variables inside your `backend/.env` file.
 | `NOTIFICATION_FROM_EMAIL`| `"no-reply@tracker.io"`| The email sender alias that appears on price drop notifications. |
 | `VITE_API_BASE_URL` | `"http://localhost:5000/api"`| (Frontend) The base endpoint routing frontend requests to the backend server. |
 
----
-
-## 🔧 Diagnostics & Operational Commands
+## Diagnostics & Operational Commands
 
 Quick cheat-sheet for running common administration and testing commands inside the workspace.
 
@@ -176,9 +175,7 @@ cd backend
 npx ts-node ../testing/test-scraper.ts "<FLIPKART_PRODUCT_URL>"
 ```
 
----
-
-## 🔒 Security & Privacy
+## Security & Privacy
 
 *   **Zero External Tracking**: All scraping queries and alerts run locally on your host. There are no tracking scripts, analytics cookies, or external servers monitoring the items you track.
 *   **Environment Safety**: The `.env` file containing sensitive connection credentials, Discord tokens, or email passwords is protected by Git via our [.gitignore](backend/.gitignore) rules. Never push this file to public repositories.
