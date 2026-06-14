@@ -4,7 +4,7 @@
 
 > **Branch note:** `main` is the default branch and contains the stable curated release. For the latest development changes (which may be unstable), use [`dev`](https://github.com/amri-03/flipkart-price-tracker/tree/dev).
 
-A lightweight, self-hosted, privacy-first personal price tracking dashboard for Flipkart. Built with React, Tailwind CSS, TypeScript, and Playwright to automatically bypass Akamai bot defenses.
+A lightweight personal price tracking dashboard for Flipkart. Built with React, Tailwind CSS, TypeScript, and Playwright to automatically bypass Akamai bot defenses.
 
 ---
 
@@ -75,35 +75,18 @@ Looking to contribute, run tests, or perform a manual/developer setup? Please re
 
 ### Docker Compose (Recommended)
 
-Deploy the entire tracker ecosystem in under two minutes using Docker Compose.
-
-### Step 1: Clone the Repository
 ```bash
 git clone https://github.com/amri-03/flipkart-price-tracker.git
 cd flipkart-price-tracker
-```
 
-### Step 2: Configure the Environment
-Copy the environment template file:
-```bash
-cp backend/.env.example backend/.env
-```
-Docker Compose utilizes container-to-container service networking, so database URLs are automatically pre-configured. Open `backend/.env` and update your alert target credentials (e.g., webhook tokens, chat IDs, or mail hosts).
+cp backend/.env.example backend/.env       # optional, but recommended for configuring custom notification channels
 
-### Step 3: Run the Stack
-Spin up the PostgreSQL database, the scraper server, and the Nginx web client:
-```bash
 docker compose up --build -d
 ```
 
-During startup:
-1.  **PostgreSQL** (`db`) boots up and binds to a persistent storage volume (`pgdata`).
-2.  **Backend API** (`backend`) waits for the database, automatically applies schema migrations (`npx prisma migrate deploy`), and starts the cron scheduler.
-3.  **Frontend client** (`frontend`) compiles React static assets and serves them via Nginx.
+When the containers are healthy, Nginx will serve the web dashboard on port 80 and the API will listen on port 5000. On the first startup, the backend automatically runs database migrations (`npx prisma migrate deploy`) and boots the cron scheduler.
 
-### Accessing the Applications
-*   **Web Dashboard**: [http://localhost](http://localhost) (HTTP Port 80)
-*   **Backend REST API**: [http://localhost:5000/api](http://localhost:5000/api)
+Open `http://localhost` in your browser to access the web dashboard. The backend REST API endpoints are accessible at `http://localhost:5000/api`. If you want to change the bound ports, configure the port overrides in your `.env` file.
 
 ---
 
@@ -111,48 +94,39 @@ During startup:
 
 For active development, you can run the components natively on your host machine.
 
-### Prerequisites
-*   Node.js (v20+ recommended)
-*   PostgreSQL running locally or on a server
+### Native Linux / macOS
 
-### 1. Backend Setup
-1.  Navigate to the backend directory:
-    ```bash
-    cd backend
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Install the required Playwright Chromium binaries:
-    ```bash
-    npx playwright install chromium
-    ```
-4.  Configure `.env` with a local PostgreSQL connection (e.g., `DATABASE_URL="postgresql://user:pass@localhost:5432/tracker_db"`).
-5.  Generate the Prisma client types and apply migrations:
-    ```bash
-    npx prisma generate
-    npx prisma db push
-    ```
-6.  Start the Express API server in development mode:
-    ```bash
-    npm run dev
-    ```
+```bash
+git clone https://github.com/amri-03/flipkart-price-tracker.git
+cd flipkart-price-tracker
 
-### 2. Frontend Setup
-1.  Navigate to the frontend directory:
-    ```bash
-    cd ../frontend
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Launch the Vite development server:
-    ```bash
-    npm run dev
-    ```
-    The Vite console will serve the interface locally on [http://localhost:5173](http://localhost:5173).
+# Setup backend
+cd backend
+npm install
+npx playwright install chromium
+npx prisma generate
+npx prisma db push
+npm run dev &
+
+# Setup frontend
+cd ../frontend
+npm install
+npm run dev
+```
+
+Requirements: Node.js (v20+), npm, and a running PostgreSQL instance with database credentials configured in `backend/.env`.
+
+### Native Windows
+
+```bash
+git clone https://github.com/amri-03/flipkart-price-tracker.git
+cd flipkart-price-tracker
+.\start-windows.bat
+```
+
+Requirements: Node.js (v20+), npm, and a running PostgreSQL instance. Ensure the `DATABASE_URL` in `backend/.env` points to your PostgreSQL database.
+
+Accessing the Applications: The local Vite console will serve the interface on `http://localhost:5173`, and the Express API server will listen on `http://localhost:5000`.
 
 ---
 
