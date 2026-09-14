@@ -1,7 +1,8 @@
-import { chromium } from "playwright";
 import * as cheerio from "cheerio";
 import { validateAndExtractFlipkartId } from "../utils/url.utils";
 import { parsePrice } from "../utils/parser.utils";
+import { fetchFast, extractProduct } from "../scraper/extract";
+import { withContext } from "../scraper/browserPool";
 import {
     NetworkFetchError,
     ParsingError,
@@ -17,67 +18,74 @@ export interface ScrapedProduct {
 }
 
 export class ScraperService {
-    // Using a highly reputable desktop Chrome agent footprint
-    private readonly userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
     /**
-     * Orchestrates the fetching, validation, and parsing of a Flipkart product page.
+     * Orchestrates fetching, validation, and parsing of a Flipkart product page.
+     * Uses a fast-path HTTP fetch first, falling back to pooled Playwright contexts.
      */
     public async scrapeProduct(rawUrl: string): Promise<ScrapedProduct> {
         const { platformId, cleanUrl } = validateAndExtractFlipkartId(rawUrl);
 
-        const html = await this.fetchHtml(cleanUrl);
-
-        const $ = cheerio.load(html);
-        this.checkForAntiBotBlocks(html, $);
-
-        const title = this.extractTitle($);
-        const currentPrice = this.extractPrice($);
-        const imageUrl = this.extractImageUrl($);
-
-        if (!title || !currentPrice || !imageUrl) {
-            const missingFields = [];
-            if (!title) missingFields.push("title");
-            if (!currentPrice) missingFields.push("price");
-            if (!imageUrl) missingFields.push("imageUrl");
-            throw new ParsingError(`Parsing failed. Missing required fields: [${missingFields.join(", ")}].`);
+        // 1. FAST PATH: Attempt lightweight HTTP request without Chromium
+        try {
+            const fast = await fetchFast(cleanUrl);
+            if (fast && fast.price && fast.title && fast.thumbnail) {
+                console.log(`⚡ [scraper] Fast-path resolved ${platformId} (${fast.source}) - ₹${fast.price}`);
+                return {
+                    platformId,
+                    title: fast.title,
+                    currentPrice: fast.price,
+                    imageUrl: fast.thumbnail,
+                    cleanUrl,
+                };
+            }
+        } catch (err: any) {
+            console.warn(`[scraper] Fast-path bypass for ${platformId}:`, err.message);
         }
 
-        return {
-            platformId,
-            title,
-            currentPrice,
-            imageUrl,
-            cleanUrl,
-        };
-    }
-
-    /**
-     * Fetches the raw HTML body using a headless Playwright Chromium instance.
-     */
-    private async fetchHtml(url: string): Promise<string> {
-        let browser;
+        // 2. SLOW PATH: Fall back to pooled headless Chromium context
+        console.log(`🌐 [scraper] Launching pooled Chromium context for ${platformId}...`);
         try {
-            browser = await chromium.launch({ headless: true });
-            const context = await browser.newContext({
-                userAgent: this.userAgent,
-                viewport: { width: 1280, height: 800 }
+            return await withContext(async (ctx) => {
+                const page = await ctx.newPage();
+                await page.goto(cleanUrl, {
+                    waitUntil: "domcontentloaded",
+                    timeout: 20000,
+                });
+
+                // Check for fast extraction on rendered DOM
+                const extracted = await extractProduct(page, cleanUrl);
+                const html = await page.content();
+                const $ = cheerio.load(html);
+
+                this.checkForAntiBotBlocks(html, $);
+
+                const title = extracted?.title || this.extractTitle($);
+                const currentPrice = extracted?.price || this.extractPrice($);
+                const imageUrl = extracted?.thumbnail || this.extractImageUrl($);
+
+                if (!title || !currentPrice || !imageUrl) {
+                    const missing = [];
+                    if (!title) missing.push("title");
+                    if (!currentPrice) missing.push("price");
+                    if (!imageUrl) missing.push("imageUrl");
+                    throw new ParsingError(`Parsing failed. Missing required fields: [${missing.join(", ")}].`);
+                }
+
+                return {
+                    platformId,
+                    title,
+                    currentPrice,
+                    imageUrl,
+                    cleanUrl,
+                };
             });
-            const page = await context.newPage();
-            await page.goto(url, {
-                waitUntil: "domcontentloaded",
-                timeout: 15000 // 15 seconds navigation timeout
-            });
-            const html = await page.content();
-            return html;
         } catch (error: any) {
-            throw new NetworkFetchError(
-                `Failed to retrieve page. Network error: ${error.message || "Unknown error"}`
-            );
-        } finally {
-            if (browser) {
-                await browser.close();
+            if (error instanceof ParsingError || error instanceof AntiBotBlockedError) {
+                throw error;
             }
+            throw new NetworkFetchError(
+                `Failed to retrieve page via Chromium pool: ${error.message || "Unknown error"}`
+            );
         }
     }
 
@@ -89,13 +97,18 @@ export class ScraperService {
         const bodyText = $("body").text().toLowerCase();
 
         // 1. Check for standard CDN blocks
-        const isAccessDenied = titleText.toLowerCase().includes("access denied") || titleText.toLowerCase().includes("attention required");
+        const isAccessDenied =
+            titleText.toLowerCase().includes("access denied") ||
+            titleText.toLowerCase().includes("attention required");
 
-        // 2. Check for soft-block redirects (Flipkart homepage served instead of product detail page)
-        const isRedirectedToHome = titleText === "Buy Products Online at Best Price in India - All Categories | Flipkart.com";
+        // 2. Check for soft-block redirects
+        const isRedirectedToHome =
+            titleText === "Buy Products Online at Best Price in India - All Categories | Flipkart.com";
 
-        // 3. Check for Flipkart React App crash shell ("Oops! Something broke...")
-        const isErrorShell = bodyText.includes("oops! something broke") || bodyText.includes("unable to open this right now");
+        // 3. Check for Flipkart React App crash shell
+        const isErrorShell =
+            bodyText.includes("oops! something broke") ||
+            bodyText.includes("unable to open this right now");
 
         // 4. Check for explicit CAPTCHA indicators
         const hasCaptchaText =
@@ -143,7 +156,7 @@ export class ScraperService {
         });
         if (jsonLdPrice) return jsonLdPrice;
 
-        const domPriceSelectors = [".Nx9b7S", "._30jeq3", "._16Jgda"];
+        const domPriceSelectors = [".Nx9b7S", "._30jeq3", "._16Jgda", ".Nx9bqj"];
         for (const selector of domPriceSelectors) {
             const priceText = $(selector).first().text();
             if (priceText) {

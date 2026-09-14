@@ -6,6 +6,9 @@ import alertRoutes from "./api/routes/alert.routes";
 import authRoutes from "./api/routes/auth.routes";
 import { requireAuth } from "./api/middleware/auth.middleware";
 import { initializeCronScheduler } from "./jobs/cron.jobs";
+import { scrapeWorker } from "./queue/scrapeWorker";
+import { closeBrowser } from "./scraper/browserPool";
+import { redis } from "./queue/redis";
 
 const app = express();
 
@@ -24,7 +27,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", requireAuth, productRoutes);
 app.use("/api", requireAuth, alertRoutes);
 
-
 // Global default error-handler catch middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("Unhandled Server Error:", err);
@@ -37,6 +39,30 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Initialize background tasks
 initializeCronScheduler();
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Flipkart Tracker Server running on port ${PORT} [${NODE_ENV}]`);
 });
+
+// Graceful shutdown handling
+const shutdown = async (signal: string) => {
+  console.log(`\n[server] ${signal} signal received. Shutting down gracefully...`);
+  server.close(() => {
+    console.log("[server] HTTP server closed.");
+  });
+
+  try {
+    await scrapeWorker.close();
+    console.log("[worker] Scrape worker closed.");
+    await closeBrowser();
+    console.log("[browser] Browser pool closed.");
+    await redis.quit();
+    console.log("[redis] Redis connection closed.");
+  } catch (err: any) {
+    console.error("[server] Error during graceful shutdown:", err.message);
+  } finally {
+    process.exit(0);
+  }
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

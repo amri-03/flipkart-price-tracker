@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../services/db.service";
 import { ScraperService } from "../../services/scraper.service";
-import { AlertService } from "../../services/alert.service";
+import { enqueueScrape } from "../../queue/scrapeQueue";
 
 const scraperService = new ScraperService();
-const alertService = new AlertService();
 
 /**
  * POST /api/products
  * Registers and tracks a new product URL.
+ * Uses optimized scraper with fast-path Cheerio check.
  */
 export async function createProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -19,17 +19,16 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
       return;
     }
 
-    // 1. Invoke the verified Playwright scraper
+    // 1. Invoke the optimized scraper (fast-path + browser pool)
     const scraped = await scraperService.scrapeProduct(url);
 
     // 2. Perform transaction to insert/update Product and create a PriceHistory record
     const result = await prisma.$transaction(async (tx) => {
-      // Upsert the Product record based on the unique platformId
       const product = await tx.product.upsert({
         where: { platformId: scraped.platformId },
         update: {
           currentPrice: scraped.currentPrice,
-          url: scraped.cleanUrl, // Update to normalized URL if changed
+          url: scraped.cleanUrl,
         },
         create: {
           platformId: scraped.platformId,
@@ -40,7 +39,6 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
         },
       });
 
-      // Write a new historical snapshot entry
       await tx.priceHistory.create({
         data: {
           productId: product.id,
@@ -109,7 +107,6 @@ export async function deleteProduct(req: Request, res: Response, next: NextFunct
   try {
     const { id } = req.params as { id: string };
 
-    // Verify product exists before attempting delete
     const exists = await prisma.product.findUnique({ where: { id } });
     if (!exists) {
       res.status(404).json({ error: "NotFound", message: "Product not found." });
@@ -128,7 +125,8 @@ export async function deleteProduct(req: Request, res: Response, next: NextFunct
 
 /**
  * POST /api/products/:id/refresh
- * Force triggers an immediate check and updates the price.
+ * Enqueues a high-priority scrape job into BullMQ.
+ * Returns immediately with product context for responsive UX.
  */
 export async function refreshProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -140,40 +138,37 @@ export async function refreshProduct(req: Request, res: Response, next: NextFunc
       return;
     }
 
-    // Rescrape the canonical URL
-    const scraped = await scraperService.scrapeProduct(product.url);
+    // Enqueue with priority=1 (ahead of background cron jobs) and force=true (bypasses dedup)
+    await enqueueScrape(id, { priority: 1, force: true });
 
-    const updatedProduct = await prisma.$transaction(async (tx) => {
-      const updated = await tx.product.update({
-        where: { id },
-        data: { currentPrice: scraped.currentPrice },
-      });
-
-      await tx.priceHistory.create({
-        data: {
-          productId: id,
-          price: scraped.currentPrice,
-        },
-      });
-
-      return updated;
+    res.status(200).json({
+      ...product,
+      queued: true,
+      message: "Price refresh enqueued successfully.",
     });
-
-    // Check alerts and dispatch notifications if criteria is met
-    await alertService.checkAndDispatchAlerts(
-      product.id,
-      scraped.currentPrice,
-      product.title,
-      product.url
-    );
-
-    res.status(200).json(updatedProduct);
   } catch (error: any) {
-    if (error.name === "NetworkFetchError" || error.name === "AntiBotBlockedError") {
-      res.status(502).json({ error: error.name, message: error.message });
-    } else {
-      next(error);
+    next(error);
+  }
+}
+
+/**
+ * POST /api/products/refresh-all
+ * Enqueues all active products for a refresh with 2-second staggered intervals.
+ */
+export async function refreshAllProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const products = await prisma.product.findMany({ select: { id: true } });
+
+    for (let i = 0; i < products.length; i++) {
+      await enqueueScrape(products[i].id, { delayMs: i * 2000, force: true });
     }
+
+    res.status(200).json({
+      queued: products.length,
+      message: `Enqueued ${products.length} products for refresh.`,
+    });
+  } catch (error) {
+    next(error);
   }
 }
 
