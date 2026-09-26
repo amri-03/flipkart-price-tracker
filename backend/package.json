@@ -15,10 +15,12 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "axios": "^1.17.0",
+    "bullmq": "^6.3.6",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "ioredis": "^6.0.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.10",
     "playwright": "^1.60.0"
@@ -26,6 +28,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/ioredis": "^4.28.10",
     "@types/node": "^25.9.1",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^8.0.0",

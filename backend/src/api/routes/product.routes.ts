@@ -8,6 +8,7 @@ router.get("/", productController.listProducts);
 router.get("/:id", productController.getProduct);
 router.get("/:id/history", productController.getProductHistory);
 router.delete("/:id", productController.deleteProduct);
+router.post("/refresh-all", productController.refreshAllProducts);
 router.post("/:id/refresh", productController.refreshProduct);
 
 export default router;
