@@ -1,0 +1,18 @@
+@"
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+npm-debug.log
+*.log
+coverage
+.vscode
+.idea
+.DS_Store
+artifacts
+prompts
+testing
+"@ | Set-Content -Path "C:\Developer_Workspace\active_projects\Saas Development\flipkart-price-tracker\backend\.dockerignore" -Encoding utf8
