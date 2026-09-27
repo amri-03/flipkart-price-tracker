@@ -1,10 +1,12 @@
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { PORT, NODE_ENV } from "./constants";
 import productRoutes from "./api/routes/product.routes";
 import alertRoutes from "./api/routes/alert.routes";
 import authRoutes from "./api/routes/auth.routes";
 import { requireAuth } from "./api/middleware/auth.middleware";
+import { apiLimiter, writeLimiter } from "./api/middleware/rateLimit.middleware";
 import { initializeCronScheduler } from "./jobs/cron.jobs";
 import { scrapeWorker } from "./queue/scrapeWorker";
 import { closeBrowser } from "./scraper/browserPool";
@@ -12,23 +14,30 @@ import { redis } from "./queue/redis";
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: true,      // reflect request origin (needed for credentialed requests in dev)
+  credentials: true, // allow cookies from the browser
+}));
 app.use(express.json());
+app.use(cookieParser());
 
-// Basic service availability check
-app.get("/health", (req, res) => {
+// Basic service availability check (public, unauthenticated)
+app.get("/health", (_req, res) => {
   res.json({ status: "ok", environment: NODE_ENV });
 });
 
-// Mount the public authentication routes
+// Broad rate limit on everything under /api
+app.use("/api", apiLimiter);
+
+// Public auth routes (login/logout/status)
 app.use("/api/auth", authRoutes);
 
-// Mount the secured API endpoints using requireAuth middleware guard
-app.use("/api/products", requireAuth, productRoutes);
-app.use("/api", requireAuth, alertRoutes);
+// Protected routes: requireAuth + stricter writeLimiter
+app.use("/api/products", requireAuth, writeLimiter, productRoutes);
+app.use("/api", requireAuth, writeLimiter, alertRoutes);
 
-// Global default error-handler catch middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+// Global error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Unhandled Server Error:", err);
   res.status(500).json({
     error: "InternalServerError",
@@ -36,14 +45,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// Initialize background tasks
 initializeCronScheduler();
 
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Flipkart Tracker Server running on port ${PORT} [${NODE_ENV}]`);
+  console.log(`Flipkart Tracker Server running on port ${PORT} [${NODE_ENV}]`);
 });
 
-// Graceful shutdown handling
 const shutdown = async (signal: string) => {
   console.log(`\n[server] ${signal} signal received. Shutting down gracefully...`);
   server.close(() => {
