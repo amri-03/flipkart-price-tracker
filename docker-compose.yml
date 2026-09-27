@@ -1,5 +1,4 @@
-﻿
-services:
+﻿services:
   # 1. Database Storage Service
   db:
     image: postgres:15-alpine
@@ -18,7 +17,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -d flipkart_tracker"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 15
+      start_period: 60s
 
   # 2. Queue & Cache Storage Service (Redis)
   redis:
