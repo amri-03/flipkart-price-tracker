@@ -1,4 +1,4 @@
-﻿services:
+services:
   # 1. Database Storage Service
   db:
     image: postgres:15-alpine
@@ -77,4 +77,3 @@
 volumes:
   pgdata:
   redis_data:
-
