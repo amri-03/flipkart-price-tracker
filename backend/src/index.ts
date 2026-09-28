@@ -1,16 +1,31 @@
 ﻿import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { PORT, NODE_ENV } from "./constants";
+import * as Sentry from "@sentry/node";
+import { PORT, NODE_ENV, SENTRY_DSN } from "./constants";
 import productRoutes from "./api/routes/product.routes";
 import alertRoutes from "./api/routes/alert.routes";
 import authRoutes from "./api/routes/auth.routes";
+import healthRoutes from "./api/routes/health.routes";
 import { requireAuth } from "./api/middleware/auth.middleware";
 import { apiLimiter, writeLimiter } from "./api/middleware/rateLimit.middleware";
 import { initializeCronScheduler } from "./jobs/cron.jobs";
 import { scrapeWorker } from "./queue/scrapeWorker";
 import { closeBrowser } from "./scraper/browserPool";
 import { redis } from "./queue/redis";
+
+// Initialize Sentry before anything else, so it can instrument the
+// Express app and capture startup errors.
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    environment: NODE_ENV,
+    tracesSampleRate: 0.1,
+  });
+  console.log("[sentry] initialized");
+} else {
+  console.log("[sentry] disabled (no SENTRY_DSN)");
+}
 
 const app = express();
 
@@ -21,13 +36,11 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// Basic service availability check (public, unauthenticated)
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", environment: NODE_ENV });
-});
-
 // Broad rate limit on everything under /api
 app.use("/api", apiLimiter);
+
+// Public deep healthcheck (verifies db + redis)
+app.use("/api", healthRoutes);
 
 // Public auth routes (login/logout/status)
 app.use("/api/auth", authRoutes);
@@ -35,6 +48,11 @@ app.use("/api/auth", authRoutes);
 // Protected routes: requireAuth + stricter writeLimiter
 app.use("/api/products", requireAuth, writeLimiter, productRoutes);
 app.use("/api", requireAuth, writeLimiter, alertRoutes);
+
+// Sentry error handler — must come before the global error handler
+if (SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // Global error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

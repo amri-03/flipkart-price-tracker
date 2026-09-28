@@ -1,4 +1,4 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
 import path from "path";
 
 // Locate and load environmental variables from the backend root
@@ -16,6 +16,7 @@ export const DASHBOARD_PASSWORD_HASH_B64 = (process.env.DASHBOARD_PASSWORD_HASH_
 export const JWT_SECRET = (process.env.JWT_SECRET || "").trim();
 export const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || "7d").trim();
 export const AUTH_COOKIE_NAME = "auth_token";
+export const SENTRY_DSN = (process.env.SENTRY_DSN || "").trim();
 
 // Decode the bcrypt hash once at module load. Empty string if unset.
 export const DASHBOARD_PASSWORD_HASH = DASHBOARD_PASSWORD_HASH_B64
