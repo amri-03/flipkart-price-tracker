@@ -1,4 +1,5 @@
 import { Worker, Job } from "bullmq";
+import * as Sentry from "@sentry/node";
 import { redis } from "./redis";
 import { SCRAPE_QUEUE, ScrapeJobPayload } from "./scrapeQueue";
 import { prisma } from "../services/db.service";
@@ -77,5 +78,14 @@ scrapeWorker.on("completed", (job) => {
 });
 
 scrapeWorker.on("failed", (job, err) => {
+  Sentry.captureException(err, {
+    tags: { queue: "scrape" },
+    extra: {
+      productId: job?.data?.productId,
+      jobId: job?.id,
+      attemptsMade: job?.attemptsMade,
+    },
+  });
+
   console.error(`[worker] ✘ Scrape failed for ${job?.data?.productId}:`, err.message);
 });

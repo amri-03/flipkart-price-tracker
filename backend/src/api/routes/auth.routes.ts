@@ -1,35 +1,25 @@
-import { Router, Request, Response } from "express";
-import { ADMIN_PASSWORD } from "../../constants";
+﻿import { Router } from "express";
+import { login, logout, status } from "../middleware/auth.middleware";
+import { loginLimiter } from "../middleware/rateLimit.middleware";
 
 const router = Router();
 
 /**
  * GET /api/auth/status
- * Public: Reports if the password gate is active.
+ * Public: reports whether the current session is authenticated.
  */
-router.get("/status", (req: Request, res: Response) => {
-  res.status(200).json({
-    authRequired: !!ADMIN_PASSWORD,
-  });
-});
+router.get("/status", status);
 
 /**
- * POST /api/auth/verify
- * Public: Validates a password login attempt.
+ * POST /api/auth/login
+ * Public + rate-limited: exchanges { password } for a session cookie.
  */
-router.post("/verify", (req: Request, res: Response) => {
-  const { password } = req.body;
+router.post("/login", loginLimiter, login);
 
-  if (!ADMIN_PASSWORD) {
-    res.status(200).json({ success: true, message: "Authentication is not enabled." });
-    return;
-  }
-
-  if (password === ADMIN_PASSWORD) {
-    res.status(200).json({ success: true });
-  } else {
-    res.status(401).json({ success: false, message: "Incorrect password." });
-  }
-});
+/**
+ * POST /api/auth/logout
+ * Public: clears the session cookie.
+ */
+router.post("/logout", logout);
 
 export default router;

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   useProducts,
   useTrackProduct,
@@ -16,44 +16,36 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(false);
 
   React.useEffect(() => {
+    // Check current session on mount
     apiClient.get("/auth/status")
       .then((res) => {
-        const required = res.data.authRequired;
-        setAuthRequired(required);
-        if (required) {
-          const stored = localStorage.getItem("admin_password");
-          if (stored) {
-            // Verify stored password
-            apiClient.post("/auth/verify", { password: stored })
-              .then(() => {
-                setIsAuthenticated(true);
-              })
-              .catch(() => {
-                localStorage.removeItem("admin_password");
-                setIsAuthenticated(false);
-              });
-          }
-        } else {
-          setIsAuthenticated(true);
-        }
+        setAuthRequired(true);
+        setIsAuthenticated(Boolean(res.data.authenticated));
       })
       .catch(() => {
-        // Fallback to public mode on connection error
+        // Backend unreachable — fall through to public mode so the dashboard still tries to load
         setAuthRequired(false);
         setIsAuthenticated(true);
       });
+
+    // Listen for 401 events dispatched by the axios interceptor
+    const onExpired = () => setIsAuthenticated(false);
+    window.addEventListener("auth:expired", onExpired);
+    return () => window.removeEventListener("auth:expired", onExpired);
   }, []);
 
-  const handleLoginSuccess = (password: string) => {
-    localStorage.setItem("admin_password", password);
+  const handleLoginSuccess = () => {
+    // Cookie was set by the server on /auth/login; no client-side storage needed.
     setIsAuthenticated(true);
-    // Reload window to refresh all react-query queries with the new authorization header
-    window.location.reload();
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_password");
-    window.location.reload();
+  const handleLogout = async () => {
+    try {
+      await apiClient.post("/auth/logout");
+    } catch {
+      // ignore network errors on logout
+    }
+    setIsAuthenticated(false);
   };
 
   if (authRequired === null) {
@@ -74,7 +66,7 @@ export default function App() {
   return <Dashboard authRequired={authRequired} onLogout={handleLogout} />;
 }
 
-function LoginPage({ onLoginSuccess }: { onLoginSuccess: (password: string) => void }) {
+function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -88,8 +80,8 @@ function LoginPage({ onLoginSuccess }: { onLoginSuccess: (password: string) => v
     }
     setLoading(true);
     try {
-      await apiClient.post("/auth/verify", { password });
-      onLoginSuccess(password);
+      await apiClient.post("/auth/login", { password });
+      onLoginSuccess();
     } catch (err: any) {
       setError(err.response?.data?.message || "Invalid password.");
     } finally {
@@ -101,7 +93,7 @@ function LoginPage({ onLoginSuccess }: { onLoginSuccess: (password: string) => v
     <div className="min-h-screen bg-gray-50/60 dark:bg-gray-950 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-md border border-gray-100 dark:border-gray-800/60 w-full max-w-md space-y-6 transition-all duration-300">
         <div className="text-center space-y-2">
-          <span className="text-3xl block">🔑</span>
+          <span className="text-3xl block">🔒</span>
           <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">
             Tracker Login
           </h1>
@@ -122,16 +114,14 @@ function LoginPage({ onLoginSuccess }: { onLoginSuccess: (password: string) => v
             />
           </div>
 
-          {error && (
-            <p className="text-xs text-red-500 font-semibold">{error}</p>
-          )}
+          {error && <p className="text-xs text-red-500 font-semibold">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
             className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 text-sm transition-colors shadow-md shadow-blue-500/10 cursor-pointer"
           >
-            {loading ? "Verifying..." : "Login"}
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>
@@ -175,12 +165,10 @@ function Dashboard({ authRequired, onLogout }: DashboardProps) {
 
   return (
     <div className="min-h-screen bg-gray-50/60 dark:bg-gray-950 text-gray-900 dark:text-white pb-12">
-      
-      {/* Central Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <span className="text-xl">🏷️</span>
+            <span className="text-xl">🛒</span>
             <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">
               Flipkart Price Tracker
             </h1>
@@ -202,8 +190,6 @@ function Dashboard({ authRequired, onLogout }: DashboardProps) {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 mt-8 space-y-8">
-        
-        {/* Tracking Input Card */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800/60 max-w-2xl mx-auto">
           <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">Add Product to Track</h2>
           <form onSubmit={handleTrackSubmit} className="flex flex-col sm:flex-row gap-3">
@@ -222,12 +208,9 @@ function Dashboard({ authRequired, onLogout }: DashboardProps) {
               {trackMutation.isPending ? "Parsing Page..." : "Track Product"}
             </button>
           </form>
-          {inputError && (
-            <p className="mt-2.5 text-xs text-red-500 font-semibold">{inputError}</p>
-          )}
+          {inputError && <p className="mt-2.5 text-xs text-red-500 font-semibold">{inputError}</p>}
         </section>
 
-        {/* Dashboard Grid */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400">Tracked Items</h2>
@@ -259,20 +242,14 @@ function Dashboard({ authRequired, onLogout }: DashboardProps) {
                   }`}
                 >
                   <div className="flex space-x-4">
-                    {/* Thumbnail */}
                     <div className="w-20 h-20 bg-gray-50 dark:bg-gray-950 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center p-1 border border-gray-100 dark:border-gray-800">
                       {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.title}
-                          className="max-w-full max-h-full object-contain"
-                        />
+                        <img src={product.imageUrl} alt={product.title} className="max-w-full max-h-full object-contain" />
                       ) : (
                         <span className="text-xs text-gray-400">No Img</span>
                       )}
                     </div>
 
-                    {/* Meta details */}
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <h3
                         className="text-sm font-bold text-gray-900 dark:text-white truncate cursor-pointer hover:text-blue-600 transition-colors"
@@ -292,7 +269,6 @@ function Dashboard({ authRequired, onLogout }: DashboardProps) {
                     </div>
                   </div>
 
-                  {/* Actions Bar */}
                   <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-800/80 flex items-center justify-between">
                     <div className="flex space-x-2">
                       <button
@@ -303,7 +279,7 @@ function Dashboard({ authRequired, onLogout }: DashboardProps) {
                       </button>
                       <button
                         onClick={() => setActiveAlertProduct(product)}
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-905/40 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
                       >
                         Alerts 🔔
                       </button>
@@ -333,12 +309,9 @@ function Dashboard({ authRequired, onLogout }: DashboardProps) {
           )}
         </section>
 
-        {/* Selected Product History Panel */}
         {selectedProduct && <ProductHistoryPanel product={selectedProduct} onClose={() => setSelectedProduct(null)} />}
-
       </main>
 
-      {/* Alert Overlay Modal */}
       {activeAlertProduct && (
         <AlertModal
           productId={activeAlertProduct.id}
