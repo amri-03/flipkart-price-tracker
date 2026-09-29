@@ -19,8 +19,9 @@ model Product {
   platformId   String         @unique @map("platform_id") @db.VarChar(100)
   title        String         @db.VarChar(512)
   imageUrl     String?        @map("image_url") @db.Text
-  currentPrice Decimal        @map("current_price") @db.Decimal(12, 2)
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  currentPrice       Decimal        @map("current_price") @db.Decimal(12, 2)
+  alertSnoozedUntil  DateTime?      @map("alert_snoozed_until") @db.Timestamptz
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   histories    PriceHistory[]
