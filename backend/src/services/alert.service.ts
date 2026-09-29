@@ -19,6 +19,19 @@ export class AlertService {
   ): Promise<void> {
     const now = new Date();
 
+    // 0. Product-level snooze check: skip all alerts if snoozed
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { alertSnoozedUntil: true },
+    });
+
+    if (product?.alertSnoozedUntil && product.alertSnoozedUntil > now) {
+      console.log(
+        `[alerts] Skipping product ${productId} (snoozed until ${product.alertSnoozedUntil.toISOString()})`
+      );
+      return;
+    }
+
     // 1. Fetch active alerts configured for this product
     const activeAlerts = await prisma.alert.findMany({
       where: {
@@ -49,6 +62,7 @@ export class AlertService {
             // 4. Router dispatch based on selected channel (non-blocking background call)
             this.dispatchNotification(
               alert.notificationChannel,
+              productId,
               productTitle,
               currentPrice,
               targetPriceNum,
@@ -73,6 +87,7 @@ export class AlertService {
    */
   private async dispatchNotification(
     channel: "TELEGRAM" | "DISCORD" | "EMAIL",
+    productId: string,
     title: string,
     current: number,
     target: number,
@@ -98,9 +113,21 @@ export class AlertService {
         throw new Error("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing in environmental profiles.");
       }
       const telegramApi = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+      // Inline keyboard: taps send callback_query to the bot's webhook.
+      // Webhook route (/api/telegram/webhook) is not wired yet -- buttons
+      // appear but taps have no effect until deploy-time webhook registration.
+      const replyMarkup = {
+        inline_keyboard: [[
+          { text: "\u23F0 Snooze 24h", callback_data: `snooze:${productId}:24` },
+          { text: "\uD83D\uDED1 Stop tracking", callback_data: `stop:${productId}` },
+        ]],
+      };
+
       await axios.post(telegramApi, {
         chat_id: chatId,
-        text: message.replace(/\*\*/g, ""), // Strip Discord bold markdowns for Telegram clean presentation
+        text: message.replace(/\*\*/g, ""),
+        reply_markup: replyMarkup,
       });
     } 
     

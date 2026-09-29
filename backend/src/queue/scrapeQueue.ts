@@ -24,7 +24,9 @@ export async function enqueueScrape(
   productId: string,
   opts: { priority?: number; delayMs?: number; force?: boolean } = {}
 ) {
-  const jobId = opts.force ? `scrape:${productId}:${Date.now()}` : `scrape:${productId}`;
+  const jobId = opts.force
+    ? `scrape-${productId}-${Date.now()}`
+    : `scrape-${productId}`;
 
   return scrapeQueue.add(
     "scrape-product",
