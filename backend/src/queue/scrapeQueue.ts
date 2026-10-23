@@ -10,7 +10,7 @@ export interface ScrapeJobPayload {
 export const scrapeQueue = new Queue<ScrapeJobPayload>(SCRAPE_QUEUE, {
   connection: redis,
   defaultJobOptions: {
-    attempts: 3,
+    attempts: 2,
     backoff: { type: "exponential", delay: 5000 },
     removeOnComplete: { age: 3600, count: 500 }, // retain up to 1 hour or 500 jobs
     removeOnFail: { age: 86400 },                 // retain failures for 24 hours

@@ -21,46 +21,70 @@ async function processScrape(job: Job<ScrapeJobPayload>) {
     return { skipped: true, reason: "NotFound" };
   }
 
+  if (!product.isActive) {
+    console.log(`[worker] Product ${productId} is inactive. Skipping.`);
+    return { skipped: true, reason: "Inactive" };
+  }
+
   console.log(`[worker] Processing scrape for product "${product.title.substring(0, 30)}..." (${productId})`);
 
-  // 1. Scrape via ScraperService (leverages fetchFast, falls back to pooled Chromium)
-  const scraped = await scraperService.scrapeProduct(product.url);
+  try {
+    const scraped = await scraperService.scrapeProduct(product.url);
 
-  // 2. Persist updated price & history in atomic database transaction
-  const updatedProduct = await prisma.$transaction(async (tx) => {
-    const updated = await tx.product.update({
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      const updated = await tx.product.update({
+        where: { id: productId },
+        data: {
+          currentPrice: scraped.currentPrice,
+          title: scraped.title,
+          imageUrl: scraped.imageUrl,
+          url: scraped.cleanUrl,
+          consecutiveFailures: 0,
+        },
+      });
+
+      await tx.priceHistory.create({
+        data: {
+          productId,
+          price: scraped.currentPrice,
+        },
+      });
+
+      return updated;
+    });
+
+    await alertService.checkAndDispatchAlerts(
+      product.id,
+      scraped.currentPrice,
+      scraped.title,
+      scraped.cleanUrl
+    );
+
+    return {
+      productId,
+      price: scraped.currentPrice,
+      title: scraped.title,
+    };
+  } catch (error: any) {
+    console.error(`[worker] Scrape failed for ${productId}:`, error.message);
+
+    const newFailures = product.consecutiveFailures + 1;
+    const shouldDisable = newFailures >= 3;
+
+    await prisma.product.update({
       where: { id: productId },
       data: {
-        currentPrice: scraped.currentPrice,
-        title: scraped.title,
-        imageUrl: scraped.imageUrl,
-        url: scraped.cleanUrl,
+        consecutiveFailures: newFailures,
+        isActive: shouldDisable ? false : product.isActive,
       },
     });
 
-    await tx.priceHistory.create({
-      data: {
-        productId,
-        price: scraped.currentPrice,
-      },
-    });
+    if (shouldDisable) {
+      console.warn(`[worker] Product ${productId} auto-disabled after 3 consecutive failures.`);
+    }
 
-    return updated;
-  });
-
-  // 3. Evaluate active alerts and dispatch notifications (Discord/Telegram/Email)
-  await alertService.checkAndDispatchAlerts(
-    product.id,
-    scraped.currentPrice,
-    scraped.title,
-    scraped.cleanUrl
-  );
-
-  return {
-    productId,
-    price: scraped.currentPrice,
-    title: scraped.title,
-  };
+    throw error;
+  }
 }
 
 export const scrapeWorker = new Worker<ScrapeJobPayload>(
@@ -68,13 +92,13 @@ export const scrapeWorker = new Worker<ScrapeJobPayload>(
   processScrape,
   {
     connection: redis,
-    concurrency: 2, // Max 2 concurrent browser contexts
-    limiter: { max: 10, duration: 60000 }, // Rate limit to max 10 scrapes per minute
+    concurrency: 2,
+    limiter: { max: 10, duration: 60000 },
   }
 );
 
 scrapeWorker.on("completed", (job) => {
-  console.log(`[worker] ✔ Scrape finished for ${job.data.productId}`);
+  console.log(`[worker] OK Scrape finished for ${job.data.productId}`);
 });
 
 scrapeWorker.on("failed", (job, err) => {
@@ -87,5 +111,5 @@ scrapeWorker.on("failed", (job, err) => {
     },
   });
 
-  console.error(`[worker] ✘ Scrape failed for ${job?.data?.productId}:`, err.message);
+  console.error(`[worker] FAIL Scrape failed for ${job?.data?.productId}:`, err.message);
 });
