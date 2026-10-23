@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import * as Sentry from "@sentry/node";
@@ -21,8 +21,36 @@ if (SENTRY_DSN) {
     dsn: SENTRY_DSN,
     environment: NODE_ENV,
     tracesSampleRate: 0.1,
+    beforeSend(event, hint) {
+      const err = hint?.originalException as any;
+
+      // Suppress transient DB unreachability
+      if (err?.name === "PrismaClientInitializationError") return null;
+      if (err?.name === "PrismaClientKnownRequestError") {
+        const code = err?.code;
+        if (code === "P1001" || code === "P2028" || code === "P2024") return null;
+      }
+
+      // Suppress transient Playwright timeouts
+      if (err?.name === "TimeoutError") return null;
+      if (typeof err?.message === "string" && err.message.includes("page.goto: Timeout")) return null;
+
+      // Suppress our own NetworkFetchError when it's clearly network-transient
+      if (err?.name === "NetworkFetchError" && typeof err.message === "string") {
+        if (
+          err.message.includes("Timeout") ||
+          err.message.includes("net::ERR_") ||
+          err.message.includes("ECONNRESET") ||
+          err.message.includes("ENOTFOUND")
+        ) {
+          return null;
+        }
+      }
+
+      return event;
+    },
   });
-  console.log("[sentry] initialized");
+  console.log("[sentry] initialized (with noise filter)");
 } else {
   console.log("[sentry] disabled (no SENTRY_DSN)");
 }

@@ -16,6 +16,7 @@ export function initializeCronScheduler(): void {
 
     try {
       const products = await prisma.product.findMany({
+        where: { isActive: true },
         select: { id: true, title: true },
       });
 

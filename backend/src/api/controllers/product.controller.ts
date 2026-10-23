@@ -2,13 +2,14 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../services/db.service";
 import { ScraperService } from "../../services/scraper.service";
 import { enqueueScrape } from "../../queue/scrapeQueue";
+import { getAdapter } from "../../scraper/adapters";
 
 const scraperService = new ScraperService();
 
 /**
  * POST /api/products
- * Registers and tracks a new product URL.
- * Uses optimized scraper with fast-path Cheerio check.
+ * Registers a new product URL. Returns immediately with a placeholder row;
+ * the first scrape is scheduled 1 hour later by the worker.
  */
 export async function createProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -19,42 +20,67 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
       return;
     }
 
-    // 1. Invoke the optimized scraper (fast-path + browser pool)
-    const scraped = await scraperService.scrapeProduct(url);
-
-    // 2. Perform transaction to insert/update Product and create a PriceHistory record
-    const result = await prisma.$transaction(async (tx) => {
-      const product = await tx.product.upsert({
-        where: { platformId: scraped.platformId },
-        update: {
-          currentPrice: scraped.currentPrice,
-          url: scraped.cleanUrl,
-        },
-        create: {
-          platformId: scraped.platformId,
-          url: scraped.cleanUrl,
-          title: scraped.title,
-          imageUrl: scraped.imageUrl,
-          currentPrice: scraped.currentPrice,
-        },
+    // 1. Normalize URL via the adapter registry (no scraping yet)
+    const adapter = getAdapter(url);
+    if (!adapter) {
+      res.status(400).json({
+        error: "UnsupportedUrl",
+        message: "No site adapter registered for this URL. Supported: Flipkart, Amazon.",
       });
+      return;
+    }
 
-      await tx.priceHistory.create({
-        data: {
-          productId: product.id,
-          price: scraped.currentPrice,
-        },
+    const norm = adapter.normalizeUrl?.(url);
+    if (!norm) {
+      res.status(400).json({
+        error: "InvalidUrlError",
+        message: "Could not extract a product identifier from this URL.",
       });
+      return;
+    }
 
-      return product;
+    // 2. Upsert with placeholder — worker fills title/image/price on first scrape
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.product.findUnique({
+          where: { platformId: norm.platformId },
+        });
+
+        // Already tracked — just re-enqueue a fast refresh
+        if (existing) {
+          return existing;
+        }
+
+        return tx.product.create({
+          data: {
+            platformId: norm.platformId,
+            url: norm.cleanUrl,
+            title: "Pending first check",
+            imageUrl: null,
+            currentPrice: 0,
+          },
+        });
+      },
+      { timeout: 15_000, maxWait: 10_000 }
+    );
+
+    // 3. Enqueue delayed scrape (1 hour). If product already existed, use a short delay.
+    const isNew = (result as any).title === "Pending first check";
+    await enqueueScrape(result.id, {
+      delayMs: isNew ? 60 * 60 * 1000 : 5_000,
+      force: true,
     });
 
-    res.status(201).json(result);
+    res.status(202).json({
+      ...result,
+      queued: true,
+      message: isNew
+        ? "Product registered. First price check scheduled for 1 hour from now."
+        : "Product already tracked. Refresh enqueued.",
+    });
   } catch (error: any) {
     if (error.name === "InvalidUrlError") {
       res.status(400).json({ error: "InvalidUrlError", message: error.message });
-    } else if (error.name === "NetworkFetchError" || error.name === "AntiBotBlockedError") {
-      res.status(502).json({ error: error.name, message: error.message });
     } else {
       next(error);
     }

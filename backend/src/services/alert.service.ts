@@ -93,7 +93,7 @@ export class AlertService {
     target: number,
     url: string
   ): Promise<void> {
-    const message = `🚨 **PRICE DROP ALERT!** 🚨\n\n**Product:** ${title}\n**Current Price:** ₹${current.toLocaleString("en-IN")}\n**Target Price:** ₹${target.toLocaleString("en-IN")}\n\n👉 Buy Now: ${url}`;
+    const message = `\uD83D\uDEA8 **PRICE ALERT!** \uD83D\uDEA8\n\n**Product:** ${title}\n**Current Price:** \u20B9${current.toLocaleString("en-IN")}\n**Target Price:** \u20B9${target.toLocaleString("en-IN")}\n\n\uD83D\uDC49 Buy Now: ${url}`;
 
     const cleanEnvVar = (val: string | undefined): string => {
       if (!val) return "";
